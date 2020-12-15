@@ -1,0 +1,33 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using SAPbobsCOM;
+using SAPbouiCOM;
+
+namespace Cliente
+{
+    public class EXO_721
+    {
+
+        public EXO_721()
+        { }
+
+        public bool ItemEvent(EXO_Generales.EXO_infoItemEvent infoEvento)
+        {
+            switch (infoEvento.EventType)
+            {
+                case BoEventTypes.et_FORM_LOAD:
+                    if (!infoEvento.BeforeAction && infoEvento.ActionSuccess)
+                    {
+                        SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+                        ((SAPbouiCOM.ComboBox)oForm.Items.Item("3").Specific).Select("-2", BoSearchKey.psk_ByDescription);
+                    }
+                    break;
+            }
+
+            return true;
+        }
+        
+    }
+}

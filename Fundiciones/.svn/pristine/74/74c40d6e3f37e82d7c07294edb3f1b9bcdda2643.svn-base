@@ -1,0 +1,85 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using SAPbobsCOM;
+using SAPbouiCOM;
+
+namespace Cliente
+{
+    public class EXO_140
+    {
+        public EXO_140()
+        {
+        }
+
+        public bool ItemEvent(EXO_Generales.EXO_infoItemEvent infoEvento)
+        {
+            switch (infoEvento.EventType)
+            {
+                case BoEventTypes.et_FORM_LOAD:
+                    if (!infoEvento.BeforeAction)
+                    {
+                        #region Creo el boton
+                        SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+                        SAPbouiCOM.Item oItem  = null;
+
+                        oItem = oForm.Items.Add("btnCarRef", SAPbouiCOM.BoFormItemTypes.it_BUTTON);
+                        oItem.Left = oForm.Items.Item("14").Left + oForm.Items.Item("14").Width + 10;
+                        oItem.Width = oForm.Items.Item("1").Width + 20;
+                        oItem.Top = oForm.Items.Item("14").Top;
+                        oItem.FontSize = oForm.Items.Item("1").FontSize;
+                        oItem.Height = oForm.Items.Item("1").Height;
+
+                        ((SAPbouiCOM.Button)oForm.Items.Item("btnCarRef").Specific).Caption = "Carga Referencias";
+                        oItem.Visible = true;
+                        #endregion
+                    }
+                    break;
+
+                case BoEventTypes.et_ITEM_PRESSED:
+                    #region Cargo las referencias
+                    if (!infoEvento.BeforeAction && infoEvento.ActionSuccess && infoEvento.ItemUID == "btnCarRef")
+                    {
+                        SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+                     
+                        string cClaveBase, cTipoBase, cReferencia;
+                        SAPbouiCOM.Matrix   oMatrix = (SAPbouiCOM.Matrix)(oForm.Items.Item("38").Specific);
+                        oForm.Freeze(true);
+                        try
+                            {        /**/                                
+                                for (int ncont = 1; ncont <= oMatrix.VisualRowCount; ncont++)
+                                {
+                                    cTipoBase = ((SAPbouiCOM.EditText)oMatrix.GetCellSpecific("43", ncont)).Value;
+                                    if (cTipoBase == "17")
+                                    {
+                                        cClaveBase = ((SAPbouiCOM.EditText)oMatrix.GetCellSpecific("45", ncont)).Value;
+                                        cReferencia = Utilidades.DameValorFUNDI("ORDR", "NumAtCard", "DocEntry = " + cClaveBase);
+                                        if (cReferencia != "")
+                                        {
+                                            ((SAPbouiCOM.EditText)(oMatrix.Columns.Item("163").Cells.Item(ncont).Specific)).String = cReferencia;
+                                        }
+                                    }
+                                }
+
+                            }
+                            catch (Exception ex)
+                            {
+                                oForm.Freeze(false);
+                                Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("No puede modificar la referencia", 0, "", "", "");
+                            }
+                            oForm.Freeze(false);                        
+                        
+                    }
+                    #endregion
+                    break;
+            }
+
+            return true;
+        }
+
+
+
+
+    }
+}

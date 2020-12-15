@@ -1,0 +1,61 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using SAPbobsCOM;
+using SAPbouiCOM;
+
+namespace Cliente
+{
+    public class EXO_UBIC
+    {
+
+        public EXO_UBIC()
+        { }
+
+
+        public bool ItemEvent(EXO_Generales.EXO_infoItemEvent infoEvento)
+        {
+            switch (infoEvento.EventType)
+            {
+                case BoEventTypes.et_VALIDATE:
+                    if (infoEvento.ColUID == "U_cod_ubic" && !infoEvento.BeforeAction && 
+                        infoEvento.ActionSuccess && infoEvento.ItemChanged)
+                    {
+                        SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+                        if (oForm.Mode == SAPbouiCOM.BoFormMode.fm_ADD_MODE || oForm.Mode == SAPbouiCOM.BoFormMode.fm_UPDATE_MODE)
+                            {                                
+                                SAPbouiCOM.Matrix oMatrix = (SAPbouiCOM.Matrix)oForm.Items.Item("3").Specific;
+                                SAPbouiCOM.EditText oTxt = (SAPbouiCOM.EditText)oMatrix.Columns.Item("U_cod_ubic").Cells.Item(infoEvento.Row).Specific;
+                                if (!Utilidades.TodasMayusculasFUNDI(oTxt.String))
+                                {
+                                    oTxt.String = oTxt.String.ToUpper();
+                                }
+                                string Ubicacion = oTxt.Value;
+                                if (Ubicacion == "")
+                                {
+                                    return false;
+                                }
+                                if (Utilidades.DameValorFUNDI("[@SIA_UBIC]", "U_cod_ubic", "U_cod_ubic='" + Ubicacion + "'") != "")
+                                {
+                                    Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("Ya existe una ubicación con ese código", 1, "Ok", "", "");
+                                    oTxt = (SAPbouiCOM.EditText)oMatrix.Columns.Item("U_cod_ubic").Cells.Item(infoEvento.Row).Specific;
+                                    oTxt.Value = "";
+                                    oTxt.Active = true;                                    
+                                    return false;
+                                }
+
+                                oTxt = (SAPbouiCOM.EditText)oMatrix.Columns.Item("Code").Cells.Item(infoEvento.Row).Specific;
+                                string UltimoValor = Utilidades.UltimoCodeFUNDI("[@SIA_UBIC]");
+                                oTxt.Value = Utilidades.CompletaConCerosFUNDI(8, Utilidades.UltimoCodeFUNDI("[@SIA_UBIC]"), 1);
+                                oTxt = (SAPbouiCOM.EditText)oMatrix.Columns.Item("Name").Cells.Item(infoEvento.Row).Specific;
+                                oTxt.Value = Utilidades.CompletaConCerosFUNDI(8, Utilidades.UltimoCodeFUNDI("[@SIA_UBIC]"), 1);
+                            }                        
+                    }
+                    break;
+            }
+
+            return true;
+        }
+    }
+}

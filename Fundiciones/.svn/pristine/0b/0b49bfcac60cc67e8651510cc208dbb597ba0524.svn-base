@@ -1,0 +1,566 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using SAPbobsCOM;
+using SAPbouiCOM;
+
+namespace Cliente
+{
+    public class EXO_Procesos
+    {
+        public EXO_Procesos()
+        { }
+
+        public EXO_Procesos(bool lCreacion)
+        {
+            SAPbouiCOM.Form oForm = null;
+
+            #region CargoScreen
+            SAPbouiCOM.FormCreationParams oParametrosCreacion = (SAPbouiCOM.FormCreationParams)(Matriz.oGlobal.conexionSAP.SBOApp.CreateObject(SAPbouiCOM.BoCreatableObjectType.cot_FormCreationParams));
+
+            Type Tipo = this.GetType();
+            string strXML = Utilidades.LeoQueryFich("EXO_FrmProcesos.xml", Tipo);
+            oParametrosCreacion.XmlData = strXML;
+            oParametrosCreacion.UniqueID = "";
+            oParametrosCreacion.BorderStyle = BoFormBorderStyle.fbs_Fixed;
+
+            try
+            {
+                oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.AddEx(oParametrosCreacion);
+            }
+            catch (Exception ex)
+            {
+                Matriz.oGlobal.conexionSAP.SBOApp.MessageBox(ex.Message, 1, "Ok", "", "");                
+            }
+            #endregion
+
+            ModificoCFL(ref oForm);
+
+            ((SAPbouiCOM.CheckBox)oForm.Items.Item("chkDPC").Specific).Checked = true;                        
+        }
+
+        public bool ItemEvent(EXO_Generales.EXO_infoItemEvent infoEvento)
+        {
+            SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+
+            switch (infoEvento.EventType)
+            {
+                case BoEventTypes.et_ITEM_PRESSED:
+                    #region Procesar Orden
+                    if (infoEvento.ItemUID == "btnProc" && !infoEvento.BeforeAction)
+                    {                                               
+                        string cAux = ((SAPbouiCOM.EditText) oForm.Items.Item("txtNumOrd").Specific).Value;
+                        int nAux =  (cAux == "") ? 0 : Convert.ToInt32(cAux);
+                        int nAbsEntryProd = (int) Matriz.oGlobal.SQL.sqlNumericaB1("SELECT  T0.DocEntry FROM OWOR T0  WHERE T0.DocNum = " + nAux.ToString());
+
+                        if (nAbsEntryProd == 0)
+                        {
+                            Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("No hay orden de produccion cargada", 1, "Ok", "", "");
+                            return true;
+                        }
+
+                        try
+                        {
+                            #region INICIO TRANSACTION
+                            if (Matriz.oGlobal.conexionSAP.compañia.InTransaction)
+                            {
+                                Matriz.oGlobal.conexionSAP.compañia.EndTransaction(BoWfTransOpt.wf_RollBack);
+                            }
+                            #endregion
+
+                            SAPbobsCOM.Documents oInvGenEntry;
+                            SAPbobsCOM.Document_Lines oInvGenEntryLineas;
+                            SAPbobsCOM.Documents oInvGenExit;
+                            SAPbobsCOM.Document_Lines oInvGenExitLineas;
+                            SAPbobsCOM.ProductionOrders oProductionOrders;
+                            int RetValSal = 1;
+                            int RetValEnt = 1;
+
+                            oInvGenExit = (SAPbobsCOM.Documents)(Matriz.oGlobal.conexionSAP.compañia.GetBusinessObject(SAPbobsCOM.BoObjectTypes.oInventoryGenExit));
+                            oInvGenEntry = (SAPbobsCOM.Documents)(Matriz.oGlobal.conexionSAP.compañia.GetBusinessObject(SAPbobsCOM.BoObjectTypes.oInventoryGenEntry));
+                            SAPbouiCOM.Matrix  oMatrix = (SAPbouiCOM.Matrix)oForm.Items.Item("matDet").Specific;
+                            SAPbouiCOM.EditText oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtTipo").Specific;
+                            if (ValidarProceso(ref oForm))
+                            {
+                                string cMenError = ""; 
+
+                                if (oEditText.String == "Desmontaje")
+                                {                                    
+                                    #region Desmontaje
+                                    #region Salida Artículo
+                                    oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtFecPed").Specific;
+                                    oInvGenExit.DocDate = Convert.ToDateTime(oEditText.String);
+                                    oInvGenExitLineas = oInvGenExit.Lines;
+                                    oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtCant").Specific;
+                                    oInvGenExitLineas.Quantity = Convert.ToDouble(oEditText.String);
+                                    oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtAlmArt").Specific;
+                                    oInvGenExitLineas.WarehouseCode = oEditText.String;
+                                    //oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtNumOrd").Specific;
+                                    //oInvGenExitLineas.BaseEntry = Convert.ToInt32(oEditText.String);
+                                    oInvGenExitLineas.BaseEntry = nAbsEntryProd;
+                                    oInvGenExitLineas.BaseType = 202;
+                                    oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtArt").Specific;
+                                    oInvGenExitLineas.Price = Convert.ToDouble(Utilidades.DameValorFUNDI("OITM", "LstEvlPric", "ItemCode ='" + oEditText.String + "'"));
+                                    oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtUbiArt").Specific;
+                                    oInvGenExitLineas.BatchNumbers.BatchNumber = oEditText.String;
+                                    oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtCant").Specific;
+                                    oInvGenExitLineas.BatchNumbers.Quantity = Convert.ToDouble(oEditText.String);
+                                    oInvGenExitLineas.BatchNumbers.Add();
+                                    RetValSal = oInvGenExit.Add();
+                                    if (RetValSal != 0)
+                                    {
+                                        cMenError = Matriz.oGlobal.conexionSAP.compañia.GetLastErrorDescription();                                        
+                                    }
+
+                                    #endregion
+
+                                    if (cMenError == "")
+                                    {
+                                        #region Entrada Componentes
+                                        oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtFecPed").Specific;
+                                        oInvGenEntry.DocDate = Convert.ToDateTime(oEditText.String);
+                                        oInvGenEntryLineas = oInvGenEntry.Lines;
+                                        for (int i = 1; i <= oMatrix.RowCount; i++)
+                                        {
+                                            if (i >= 2)
+                                            {
+                                                oInvGenEntryLineas.Add();
+                                            }
+                                            oEditText = (SAPbouiCOM.EditText)oMatrix.Columns.Item("colCant").Cells.Item(i).Specific;
+                                            oInvGenEntryLineas.Quantity = Convert.ToDouble(oEditText.String);
+                                            oEditText = (SAPbouiCOM.EditText)oMatrix.Columns.Item("colAlmCom").Cells.Item(i).Specific;
+                                            oInvGenEntryLineas.WarehouseCode = oEditText.String;
+                                            oEditText = (SAPbouiCOM.EditText)oMatrix.Columns.Item("colBasLin").Cells.Item(i).Specific;
+                                            oInvGenEntryLineas.BaseLine = Convert.ToInt32(oEditText.String);
+                                            //oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtNumOrd").Specific;
+                                            //oInvGenEntryLineas.BaseEntry = Convert.ToInt32(oEditText.String);
+                                            oInvGenEntryLineas.BaseEntry = nAbsEntryProd;
+                                            oInvGenEntryLineas.BaseType = 202;
+                                            oEditText = (SAPbouiCOM.EditText)oMatrix.Columns.Item("colArtic").Cells.Item(i).Specific;
+                                            oInvGenEntryLineas.Price = Convert.ToDouble(Utilidades.DameValorFUNDI("OITM", "LstEvlPric", "ItemCode ='" + oEditText.String + "'"));
+                                            oEditText = (SAPbouiCOM.EditText)oMatrix.Columns.Item("colUbiCom").Cells.Item(i).Specific;
+                                            oInvGenEntryLineas.BatchNumbers.BatchNumber = oEditText.String;
+                                            oEditText = (SAPbouiCOM.EditText)oMatrix.Columns.Item("colCant").Cells.Item(i).Specific;
+                                            oInvGenEntryLineas.BatchNumbers.Quantity = Convert.ToDouble(oEditText.String);
+                                            oInvGenEntryLineas.BatchNumbers.Add();
+                                        }
+                                        RetValEnt = oInvGenEntry.Add();
+                                        if (RetValEnt != 0)
+                                        {
+                                            cMenError = Matriz.oGlobal.conexionSAP.compañia.GetLastErrorDescription();                                            
+                                        }
+                                        #endregion
+                                    }
+                                    #endregion
+                                }
+
+                                if (oEditText.String == "Estándar")
+                                {
+                                    #region Montaje
+                                    #region Salida Componentes
+                                    oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtFecPed").Specific;
+                                    oInvGenExit.DocDate = Convert.ToDateTime(oEditText.String);
+                                    oInvGenExitLineas = oInvGenExit.Lines;
+                                    for (int i = 1; i <= oMatrix.RowCount; i++)
+                                    {
+                                        if (i >= 2)
+                                        {
+                                            oInvGenExitLineas.Add();
+                                        }
+                                        oEditText = (SAPbouiCOM.EditText)oMatrix.Columns.Item("colCant").Cells.Item(i).Specific;
+                                        oInvGenExitLineas.Quantity = Convert.ToDouble(oEditText.String);
+                                        oEditText = (SAPbouiCOM.EditText)oMatrix.Columns.Item("colArtic").Cells.Item(i).Specific;
+                                        oInvGenExitLineas.Price = Convert.ToDouble(Utilidades.DameValorFUNDI ("OITM", "LstEvlPric", "ItemCode ='" + oEditText.String + "'"));
+                                        oEditText = (SAPbouiCOM.EditText)oMatrix.Columns.Item("colAlmCom").Cells.Item(i).Specific;
+                                        oInvGenExitLineas.WarehouseCode = oEditText.String;
+                                        oEditText = (SAPbouiCOM.EditText)oMatrix.Columns.Item("colBasLin").Cells.Item(i).Specific;
+                                        oInvGenExitLineas.BaseLine = Convert.ToInt32(oEditText.String);
+                                        //oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtNumOrd").Specific;
+                                        //oInvGenExitLineas.BaseEntry = Convert.ToInt32(oEditText.String);
+                                        oInvGenExitLineas.BaseEntry = nAbsEntryProd; ;
+                                        oInvGenExitLineas.BaseType = 202;
+                                        oEditText = (SAPbouiCOM.EditText)oMatrix.Columns.Item("colUbiCom").Cells.Item(i).Specific;
+                                        oInvGenExitLineas.BatchNumbers.BatchNumber = oEditText.String;
+                                        oEditText = (SAPbouiCOM.EditText)oMatrix.Columns.Item("colCant").Cells.Item(i).Specific;
+                                        oInvGenExitLineas.BatchNumbers.Quantity = Convert.ToDouble(oEditText.String);
+                                        oInvGenExitLineas.BatchNumbers.Add();
+                                    }
+                                    RetValSal = oInvGenExit.Add();
+                                    if (RetValSal != 0)
+                                    {                                        
+                                        cMenError = Matriz.oGlobal.conexionSAP.compañia.GetLastErrorDescription();
+                                    }
+                                    #endregion
+
+                                    if (cMenError == "")
+                                    {
+                                        #region Entrada Artículo
+                                        oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtFecPed").Specific;
+                                        oInvGenEntry.DocDate = Convert.ToDateTime(oEditText.String);
+                                        oInvGenEntryLineas = oInvGenEntry.Lines;
+                                        oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtArt").Specific;
+                                        oInvGenEntryLineas.Price = Convert.ToDouble(Utilidades.DameValorFUNDI("OITM", "LstEvlPric", "ItemCode ='" + oEditText.String + "'"));
+                                        oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtCant").Specific;
+                                        oInvGenEntryLineas.Quantity = Convert.ToDouble(oEditText.String);
+                                        oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtAlmArt").Specific;
+                                        oInvGenEntryLineas.WarehouseCode = oEditText.String;
+                                        //oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtNumOrd").Specific;
+                                        //oInvGenEntryLineas.BaseEntry = Convert.ToInt32(oEditText.String);
+                                        oInvGenEntryLineas.BaseEntry = nAbsEntryProd;
+                                        oInvGenEntryLineas.BaseType = 202;
+                                        oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtUbiArt").Specific;
+                                        oInvGenEntryLineas.BatchNumbers.BatchNumber = oEditText.String;
+                                        oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtCant").Specific;
+                                        oInvGenEntryLineas.BatchNumbers.Quantity = Convert.ToDouble(oEditText.String);
+                                        oInvGenEntryLineas.BatchNumbers.Add();
+                                        RetValEnt = oInvGenEntry.Add();
+                                        if (RetValEnt != 0)
+                                        {
+                                            cMenError = Matriz.oGlobal.conexionSAP.compañia.GetLastErrorDescription();
+                                        }
+                                        #endregion
+                                    }
+                                    #endregion
+                                }
+
+                                if (RetValEnt == 0 && RetValSal == 0)
+                                {
+                                    #region FINALIZO LA TRANSACCION CON commit
+                                    if (Matriz.oGlobal.conexionSAP.compañia.InTransaction)
+                                    {
+                                        Matriz.oGlobal.conexionSAP.compañia.EndTransaction(BoWfTransOpt.wf_Commit);
+                                    }
+                                    #endregion
+
+                                    Matriz.oGlobal.conexionSAP.SBOApp .MessageBox("El proceso se ha realizado correctamente", 1, "", "", "");                                    
+                                    if ( ((SAPbouiCOM.CheckBox)oForm.Items.Item("chkDPC").Specific).Checked)
+                                    {
+
+                                        oProductionOrders = (SAPbobsCOM.ProductionOrders)(Matriz.oGlobal.conexionSAP.compañia.GetBusinessObject(SAPbobsCOM.BoObjectTypes.oProductionOrders));
+                                        //oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtNumOrd").Specific;
+                                        //oProductionOrders.GetByKey(Convert.ToInt32(oEditText.String));
+                                        oProductionOrders.GetByKey(nAbsEntryProd);
+                                        oProductionOrders.ProductionOrderStatus = BoProductionOrderStatusEnum.boposClosed;
+                                        oProductionOrders.Update();
+                                        Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("La orden de producción se ha dado por cerrada", 1, "", "", "");
+                                    }
+
+                                    #region Limpiar Formulario
+                                    ((SAPbouiCOM.EditText)oForm.Items.Item("txtNumOrd").Specific).String = "";
+                                    ((SAPbouiCOM.EditText)oForm.Items.Item("txtFecPed").Specific).String = "";
+                                    ((SAPbouiCOM.EditText)oForm.Items.Item("txtCant").Specific).String = "";                                    
+                                    ((SAPbouiCOM.EditText)oForm.Items.Item("txtAlmArt").Specific).String = "";
+                                    ((SAPbouiCOM.EditText)oForm.Items.Item("txtUbiArt").Specific).String = "";
+                                    ((SAPbouiCOM.EditText)oForm.Items.Item("txtTipo").Specific).String = "";
+                                    ((SAPbouiCOM.EditText)oForm.Items.Item("txtArt").Specific).String = "";
+                                    oMatrix.Clear();
+
+                                    ((SAPbouiCOM.CheckBox)oForm.Items.Item("chkDPC").Specific).Checked = true;
+                                    #endregion
+                                }
+                                else
+                                {
+                                    #region FINALIZO LA TRANSACCION CON ROLLBACK
+                                    if (Matriz.oGlobal.conexionSAP.compañia.InTransaction)
+                                    {
+                                        Matriz.oGlobal.conexionSAP.compañia.EndTransaction(BoWfTransOpt.wf_RollBack);
+                                    }
+                                    #endregion
+
+                                    Matriz.oGlobal.conexionSAP.SBOApp.MessageBox(cMenError, 1, "Ok", "", "");                                    
+                                }
+                            }
+                            else
+                            {
+                                #region FINALIZO LA TRANSACCION CON ROLLBACK
+                                if (Matriz.oGlobal.conexionSAP.compañia.InTransaction)
+                                {
+                                    Matriz.oGlobal.conexionSAP.compañia.EndTransaction(BoWfTransOpt.wf_RollBack);
+                                }
+                                #endregion
+                            }
+                        }
+                        catch
+                        {
+                            #region FINALIZO LA TRANSACCION CON ROLLBACK
+                            if (Matriz.oGlobal.conexionSAP.compañia.InTransaction)
+                            {
+                                Matriz.oGlobal.conexionSAP.compañia.EndTransaction(BoWfTransOpt.wf_RollBack);
+                            }
+                            #endregion
+
+
+                            Matriz.oGlobal.conexionSAP.SBOApp.MessageBox(Matriz.oGlobal.conexionSAP.compañia.GetLastErrorDescription(), 1, "", "", "");
+                        }
+                    }
+
+                    #endregion
+
+                    break;
+
+
+                case BoEventTypes.et_CHOOSE_FROM_LIST:
+                  if (!infoEvento.BeforeAction && infoEvento.ActionSuccess && infoEvento.SelectedObjects != null )
+                  {
+                      switch (infoEvento.ItemUID)
+                      {                                              
+                          #region Articulo
+                          case "txtNumOrd":
+                              oForm.DataSources.UserDataSources.Item("dsNumOrd").ValueEx = infoEvento.SelectedObjects.GetValue("DocNum", 0).ToString();
+                              break;
+                          #endregion
+                       }
+                  }
+                  break;
+
+                case BoEventTypes.et_VALIDATE:                  
+
+                  #region Ubicación Artículo
+
+                  if (infoEvento.ItemUID == "txtUbiArt" && !infoEvento.BeforeAction && 
+                      infoEvento.ItemChanged && !infoEvento.InnerEvent &&
+                      infoEvento.ActionSuccess)
+                  {
+                                          
+                      #region Ha de haber ubicacion y almacen
+                      string Almacen = oForm.DataSources.UserDataSources.Item("dsAlmArt").Value;
+                      string Ubicacion = oForm.DataSources.UserDataSources.Item("dsUbiArt").Value;
+                      if (!Utilidades.TodasMayusculasFUNDI(Ubicacion))
+                      {
+                         Ubicacion = Ubicacion.ToUpper();
+                         oForm.DataSources.UserDataSources.Item("dsUbiArt").Value = Ubicacion;
+                         ((SAPbouiCOM.EditText)oForm.Items.Item("txtUbiArt").Specific).Value = Ubicacion;
+                         
+                      }
+
+                      if (Almacen == "" || Ubicacion == "")
+                      {
+                          return false;
+                      }
+                        #endregion
+
+
+                      if (Utilidades.DameValorFUNDI("[@SIA_UBIC]", "U_cod_ubic", "U_cod_ubic='" + Ubicacion + "' AND U_almacen='" + Almacen + "'") == "")
+                      {
+
+                          Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("No existe ninguna ubicación con ese código para ese almacén", 1, "Ok", "", "");
+                          oForm.DataSources.UserDataSources.Item("dsUbiArt").Value = "";
+                          ((SAPbouiCOM.EditText) oForm.Items.Item("txtUbiArt").Specific).Active = true;                                                   
+                          break;
+                      }
+                  }
+                  #endregion
+
+                  #region Número Orden
+                  if (infoEvento.ItemUID == "txtNumOrd" && !infoEvento.BeforeAction && infoEvento.ActionSuccess && !infoEvento.InnerEvent)
+                  {
+                      SAPbouiCOM.EditText oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtNumOrd").Specific;
+                      SAPbouiCOM.Matrix oMatrix = (SAPbouiCOM.Matrix)oForm.Items.Item("matDet").Specific;
+
+                      
+                      if (oEditText.Value != "" )
+                      {
+
+                          SAPbobsCOM.Items oItems;
+                          SAPbobsCOM.ProductionOrders oProductionOrders;
+                          SAPbobsCOM.ProductionOrders_Lines oProductionOrdersLines;
+                          
+
+                          oItems = (SAPbobsCOM.Items)Matriz.oGlobal.conexionSAP.compañia.GetBusinessObject(BoObjectTypes.oItems);
+                          oProductionOrders = (SAPbobsCOM.ProductionOrders)Matriz.oGlobal.conexionSAP.compañia.GetBusinessObject(BoObjectTypes.oProductionOrders);                          
+
+                          int nAux= Convert.ToInt32(((SAPbouiCOM.EditText)oForm.Items.Item("txtNumOrd").Specific).Value);
+                          int nAbsEntry = (int) Matriz.oGlobal.SQL.sqlNumericaB1("SELECT  T0.DocEntry FROM OWOR T0  WHERE T0.DocNum = " + nAux.ToString());
+
+                          oProductionOrders.GetByKey(nAbsEntry);
+
+                          oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtCant").Specific;
+                          oEditText.String = oProductionOrders.PlannedQuantity.ToString();
+                          oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtFecPed").Specific;
+                          oEditText.String = oProductionOrders.DueDate.ToShortDateString();
+                          oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtTipo").Specific;
+                          switch (oProductionOrders.ProductionOrderType.ToString())
+                          {
+                              case "bopotDisassembly":
+                                  oEditText.String = "Desmontaje";
+                                  break;
+                              case "bopotSpecial":
+                                  oEditText.String = "Especial";
+                                  break;
+                              case "bopotStandard":
+                                  oEditText.String = "Estándar";
+                                  break;
+                          }
+                          oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtAlmArt").Specific;
+                          oEditText.String = oProductionOrders.Warehouse.ToString();
+                          oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtArt").Specific;
+                          oEditText.String = oProductionOrders.ItemNo.ToString();
+                          oMatrix = (SAPbouiCOM.Matrix)oForm.Items.Item("matDet").Specific;
+                          #region UserDataSource - Los usaré para pasar valores a la matriz
+                          
+                          #endregion
+                          
+                          oProductionOrdersLines = oProductionOrders.Lines;
+                          oMatrix.Clear();
+                          oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtUbiArt").Specific;
+                          oEditText.String = "";
+                          for (int i = 0; i < oProductionOrders.Lines.Count; i++)
+                          {
+                              oProductionOrdersLines.SetCurrentLine(i);
+                              oForm.DataSources.UserDataSources.Item("dsColArt").ValueEx = oProductionOrdersLines.ItemNo.ToString();
+                              oForm.DataSources.UserDataSources.Item("dsColCan").ValueEx = oProductionOrdersLines.PlannedQuantity.ToString();
+                              oForm.DataSources.UserDataSources.Item("dsColAC").ValueEx = oProductionOrdersLines.Warehouse.ToString();
+                              oItems.GetByKey(oProductionOrdersLines.ItemNo.ToString());
+                              oForm.DataSources.UserDataSources.Item("dsColAD").ValueEx = oItems.ItemName.ToString();
+                              oForm.DataSources.UserDataSources.Item("dsBasLin").ValueEx = oProductionOrdersLines.LineNumber.ToString();
+                              oMatrix.AddRow(1, oMatrix.RowCount + 1);
+                          }                          
+                      }
+                      else
+                      {
+                          if (oEditText.String == "")
+                          {
+                              #region Limpiar Formulario
+                              ((SAPbouiCOM.EditText)oForm.Items.Item("txtCant").Specific).String = "";
+                              ((SAPbouiCOM.EditText)oForm.Items.Item("txtFecPed").Specific).String = "";
+                              ((SAPbouiCOM.EditText)oForm.Items.Item("txtTipo").Specific).String = "";
+                              ((SAPbouiCOM.EditText)oForm.Items.Item("txtAlmArt").Specific).String = "";
+                              ((SAPbouiCOM.EditText)oForm.Items.Item("txtArt").Specific).String = "";                              
+                              oMatrix.Clear();
+                              ((SAPbouiCOM.EditText)oForm.Items.Item("txtUbiArt").Specific).String = "";
+                              ((SAPbouiCOM.EditText)oForm.Items.Item("txtUbiArt").Specific).Active = true;                              
+                              #endregion
+                          }
+                      }
+                  }
+                  #endregion
+                    
+                  #region Ubicación Componentes
+                  if (infoEvento.ColUID == "colUbiCom" && !infoEvento.BeforeAction && !infoEvento.InnerEvent &&
+                      infoEvento.ItemChanged && infoEvento.ActionSuccess)
+                  {
+                      SAPbouiCOM.Matrix oMatrix = (SAPbouiCOM.Matrix)oForm.Items.Item("matDet").Specific;
+
+                      
+                      string Ubicacion;
+                      string Almacen;                      
+
+                      SAPbouiCOM.EditText  oEditText = (SAPbouiCOM.EditText)oMatrix.Columns.Item("colAlmCom").Cells.Item(infoEvento.Row).Specific;                      
+
+                      Almacen = oEditText.Value;
+                      oEditText = (SAPbouiCOM.EditText)oMatrix.Columns.Item(infoEvento.ColUID).Cells.Item(infoEvento.Row).Specific;
+                      if (!Utilidades.TodasMayusculasFUNDI(oEditText.String))
+                      {
+                          oEditText.String = oEditText.String.ToUpper();
+                      }
+                      Ubicacion = oEditText.Value;
+                      if (Ubicacion == "")
+                      {
+                          break;
+                      }
+
+                      if (Utilidades.DameValorFUNDI("[@SIA_UBIC]", "U_cod_ubic", "U_cod_ubic='" + Ubicacion + "' AND U_almacen='" + Almacen + "'") == "")
+                      {                          
+                          Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("No existe ninguna ubicación con ese código para ese almacén", 1, "Ok", "", "");
+                          oEditText.Value = "";
+                          break;
+                      }
+                  }
+                  #endregion
+                  break;
+
+
+            }
+
+            return true;
+        }
+
+        private bool ValidarProceso(ref SAPbouiCOM.Form oForm)
+        {
+            try
+            {                
+                SAPbouiCOM.EditText oTxt = null;
+                SAPbouiCOM.Matrix oMatrix = null;
+                oTxt = (SAPbouiCOM.EditText)oForm.Items.Item("txtNumOrd").Specific;
+                if (oTxt.String == "")
+                {
+                    Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("El Nº de Orden no puede estar vacío", 1, "", "", "");
+                    return false;
+                }
+                string Ubicacion;
+                string Almacen;
+                oTxt = (SAPbouiCOM.EditText)oForm.Items.Item("txtAlmArt").Specific;
+                Almacen = oTxt.Value;
+                oTxt = (SAPbouiCOM.EditText)oForm.Items.Item("txtUbiArt").Specific;
+                if (!Utilidades.TodasMayusculasFUNDI(oTxt.String))
+                {
+                    oTxt.String = oTxt.String.ToUpper();
+                }
+                Ubicacion = oTxt.Value;
+                if (Ubicacion == "")
+                {
+                    Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("La ubicación del artículo no puede estar vacío", 1, "", "", "");
+                    return false;
+                }
+                if (Utilidades.DameValorFUNDI("[@SIA_UBIC]", "U_cod_ubic", "U_cod_ubic='" + Ubicacion + "' AND U_almacen='" + Almacen + "'") == "")
+                {
+                    Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("No existe ninguna ubicación del artículo con ese código para ese almacén", 1, "Ok", "", "");
+                    oTxt.Value = "";
+                    return false;
+                }
+                oMatrix = (SAPbouiCOM.Matrix)oForm.Items.Item("matDet").Specific;
+                for (int i = 1; i <= oMatrix.RowCount; i++)
+                {
+                    oTxt = (SAPbouiCOM.EditText)oMatrix.Columns.Item("colAlmCom").Cells.Item(i).Specific;
+                    //oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtAlm" + pVal.ItemUID.Substring(pVal.ItemUID.Length - 3, 3)).Specific;
+                    Almacen = oTxt.Value;
+                    oTxt = (SAPbouiCOM.EditText)oMatrix.Columns.Item("colUbiCom").Cells.Item(i).Specific;
+                    if (!Utilidades.TodasMayusculasFUNDI(oTxt.String))
+                    {
+                        oTxt.String = oTxt.String.ToUpper();
+                    }
+                    Ubicacion = oTxt.Value;
+                    if (Ubicacion == "")
+                    {
+                        Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("La ubicación del componente no puede estar vacío", 1, "", "", "");
+                        return false;
+                    }
+
+                    if (Utilidades.DameValorFUNDI("[@SIA_UBIC]", "U_cod_ubic", "U_cod_ubic='" + Ubicacion + "' AND U_almacen='" + Almacen + "'") == "")
+                    {
+                        Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("No existe ninguna ubicación del componente con ese código para ese almacén", 1, "Ok", "", "");
+                        oTxt.Value = "";
+                        return false;
+                    }
+                }
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void ModificoCFL(ref SAPbouiCOM.Form oForm)
+        {
+            try
+            {
+                SAPbouiCOM.ChooseFromListCollection oCFLs = oForm.ChooseFromLists;
+                SAPbouiCOM.ChooseFromList oCFL = oCFLs.Item("CFL1Ord");
+
+                SAPbouiCOM.Conditions oCons = oCFL.GetConditions();
+                SAPbouiCOM.Condition oCon = oCons.Add();
+                oCon.Alias = "Status";
+                oCon.Operation = SAPbouiCOM.BoConditionOperation.co_EQUAL;
+                oCon.CondVal = "R";
+                oCFL.SetConditions(oCons);
+            }
+            catch (Exception ex)
+            {
+                Matriz.oGlobal.conexionSAP.SBOApp.MessageBox(ex.Message, 1, "", "", "");
+            }
+        }
+
+    }
+}

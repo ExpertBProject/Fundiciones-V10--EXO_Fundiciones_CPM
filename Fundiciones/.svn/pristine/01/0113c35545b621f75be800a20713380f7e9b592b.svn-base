@@ -1,0 +1,91 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using SAPbobsCOM;
+using SAPbouiCOM;
+
+namespace Cliente
+{
+    public class EXO_Listados
+    {
+        public EXO_Listados()
+        {}
+
+
+        public EXO_Listados(bool lCreacion)
+        {
+            SAPbouiCOM.Form oForm = null;
+
+            #region CargoScreen
+            SAPbouiCOM.FormCreationParams oParametrosCreacion = (SAPbouiCOM.FormCreationParams)(Matriz.oGlobal.conexionSAP.SBOApp.CreateObject(SAPbouiCOM.BoCreatableObjectType.cot_FormCreationParams));
+
+            Type Tipo = this.GetType();
+            string strXML = Utilidades.LeoQueryFich("EXO_ImpresionListados.xml", Tipo);
+            oParametrosCreacion.XmlData = strXML;
+            oParametrosCreacion.UniqueID = "";
+            oParametrosCreacion.BorderStyle = BoFormBorderStyle.fbs_Fixed;
+
+            try
+            {
+                oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.AddEx(oParametrosCreacion);
+            }
+            catch (Exception ex)
+            {
+                Matriz.oGlobal.conexionSAP.SBOApp.MessageBox(ex.Message, 1, "Ok", "", "");                
+            }
+            #endregion
+
+            CargaMatrix(ref oForm);
+
+        }
+
+        public bool ItemEvent(EXO_Generales.EXO_infoItemEvent infoEvento)
+        {
+            SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+            switch (infoEvento.EventType)
+            {
+                case SAPbouiCOM.BoEventTypes.et_DOUBLE_CLICK:
+                    if (infoEvento.ItemUID == "matLis" && !infoEvento.BeforeAction && 
+                        infoEvento.ActionSuccess && infoEvento.Row > 0)
+                        {
+                            SAPbouiCOM.Matrix oMatrix = (SAPbouiCOM.Matrix)(oForm.Items.Item(infoEvento.ItemUID).Specific);
+                            SAPbouiCOM.EditText oEditText = (SAPbouiCOM.EditText)(oMatrix.Columns.Item("colNomImp").Cells.Item(infoEvento.Row).Specific);
+                            string cInforme = ((SAPbouiCOM.EditText) oMatrix.GetCellSpecific("colNomImp", infoEvento.Row)).Value;
+                            cInforme = System.IO.Path.Combine(Matriz.oGlobal.conexionSAP.pathCrystal, cInforme);
+                            Utilidades.Informe(cInforme, "");                            
+                            break;
+                        }
+                        break;
+
+                    break;
+            }
+
+            return true;
+        }
+
+        public void CargaMatrix(ref SAPbouiCOM.Form oForm)
+        {
+            SAPbouiCOM.Matrix oMatrix = (SAPbouiCOM.Matrix)(oForm.Items.Item("matLis").Specific);
+            
+            oMatrix.Columns.Item("colNomImp").DataBind.SetBound(true, "@SIA_REPORT", "U_Report");
+            oMatrix.Columns.Item("colDesImp").DataBind.SetBound(true, "@SIA_REPORT", "U_Descrip");
+           
+            // Ready Matrix to populate data
+            oMatrix.Clear();
+            //oMatrix.AutoResizeColumns();
+
+            // Querying the DB Data source
+            SAPbouiCOM.Conditions  oConditions = new SAPbouiCOM.Conditions();
+            SAPbouiCOM.Condition oCondition = oConditions.Add();
+            oCondition.Alias = "U_TipDoc";
+            oCondition.Operation = BoConditionOperation.co_EQUAL;
+            oCondition.CondVal = "0";
+            oForm.DataSources.DBDataSources.Item("@SIA_REPORT").Query(oConditions);
+
+            // setting the user data source data
+            oMatrix.LoadFromDataSource();
+        }
+
+    }
+}

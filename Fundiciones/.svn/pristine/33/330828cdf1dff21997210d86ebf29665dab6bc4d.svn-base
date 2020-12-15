@@ -1,0 +1,122 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using SAPbobsCOM;
+using SAPbouiCOM;
+
+namespace Cliente
+{
+    public class EXO_392
+    {
+        public EXO_392()
+        {
+        }
+
+        public bool ItemEvent(EXO_Generales.EXO_infoItemEvent infoEvento)
+        {
+            switch (infoEvento.EventType)
+            {
+                case BoEventTypes.et_FORM_LOAD:
+                    #region Creo el boton de 'Asiento Gasto'
+                    if (!infoEvento.BeforeAction)
+                    {
+                        SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+                        SAPbouiCOM.Item oItem = null;                                                                        
+                        oItem = oForm.Items.Add("btnAsiGas", SAPbouiCOM.BoFormItemTypes.it_BUTTON);
+                        oItem.Left = oForm.Items.Item("2").Left + oForm.Items.Item("2").Width + 20;
+                        oItem.Width = oForm.Items.Item("2").Width + 10;
+                        oItem.Top = oForm.Items.Item("2").Top;
+                        oItem.FontSize = oForm.Items.Item("2").FontSize;
+                        oItem.Height = oForm.Items.Item("2").Height;
+                        ((SAPbouiCOM.Button)oForm.Items.Item("btnAsiGas").Specific).Caption = "Asiento Gastos";
+                        oItem.Visible = true;
+                        oItem = oForm.Items.Add("btnCarRef", SAPbouiCOM.BoFormItemTypes.it_BUTTON);
+                        oItem.Left = oForm.Items.Item("2").Left + oForm.Items.Item("2").Width + 100;
+                        oItem.Width = oForm.Items.Item("2").Width + 30;
+                        oItem.Top = oForm.Items.Item("2").Top;
+                        oItem.FontSize = oForm.Items.Item("2").FontSize;
+                        oItem.Height = oForm.Items.Item("2").Height;
+
+                        ((SAPbouiCOM.Button)oForm.Items.Item("btnCarRef").Specific).Caption = "Cargar Referencia";
+                        oItem.Visible = true;
+                    }
+                    #endregion
+                    break;
+
+                case BoEventTypes.et_ITEM_PRESSED:
+                    #region Pulso el boton
+                    if (!infoEvento.BeforeAction && infoEvento.ItemUID == "btnAsiGas")
+                    {
+                        SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+                   
+                            if (oForm.Mode == SAPbouiCOM.BoFormMode.fm_OK_MODE)
+                            {
+                                if (oForm.Mode == BoFormMode.fm_OK_MODE)
+                                {
+                                    int nNumAsiento = Convert.ToInt32(oForm.DataSources.DBDataSources.Item("OJDT").GetValue("TransId", 0).Trim());
+                                    EXO_AsiGasto fAsiGasto = new EXO_AsiGasto(nNumAsiento);
+                                    fAsiGasto = null;
+                                }                                                                
+                            }
+                            else
+                            {
+                                Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("Actualiace primero antes de continuar con este proceso.", 1, "Ok", "", "");                                
+                                return false;
+                           }                        
+                    }
+                    #endregion                       
+
+                    #region Boton Carga referencia
+                    if (!infoEvento.BeforeAction && infoEvento.ItemUID == "btnCarRef")
+                    {
+                        SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+                        if (oForm.Mode == SAPbouiCOM.BoFormMode.fm_OK_MODE)
+                        {
+                            SAPbobsCOM.JournalEntries oJournalEntries;
+
+                            oJournalEntries = (SAPbobsCOM.JournalEntries)(Matriz.oGlobal.conexionSAP.compañia.GetBusinessObject(SAPbobsCOM.BoObjectTypes.oJournalEntries));                            
+                            oJournalEntries.GetByKey(Convert.ToInt32(((SAPbouiCOM.EditText)oForm.Items.Item("5").Specific).String));
+                            string Valor = "";
+                            for (int i = 0; i <= oJournalEntries.Lines.Count - 1; i++)
+                            {
+                                oJournalEntries.Lines.SetCurrentLine(i);
+                                Valor = Utilidades.DameValorFUNDI("OBOE", "RefNum", "BoeKey =" + oJournalEntries.Lines.Reference1);
+                                if (Valor != "")
+                                {
+                                    Valor = oJournalEntries.Lines.LineMemo + "  -  " + Valor;
+                                    Valor = Valor.PadRight(50, ' ').Substring(0, 49).Trim();
+                                    oJournalEntries.Lines.LineMemo = Valor;
+                                    //csVariablesGlobales.SboApp.MessageBox(oJournalEntries.Lines.LineMemo, 1, "Ok", "", "");
+                                }
+                            }
+                            int nRet;
+                            nRet = oJournalEntries.Update();
+                            if (nRet != 0)
+                            {
+                                Matriz.oGlobal.conexionSAP.SBOApp.SetStatusBarMessage(Matriz.oGlobal.conexionSAP.compañia.GetLastErrorDescription(), BoMessageTime.bmt_Short, true);
+                            }
+                            else
+                            {
+                                Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("La carga se ha realizado correctamente.", 1, "Ok", "", "");
+                            }                    
+                        }
+                        else
+                        {
+                            Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("Actualiace primero antes de continuar con este proceso.", 1, "Ok", "", "");                            
+                            return true;
+                        }
+                    }
+                    #endregion
+
+                    break;
+            }
+
+            return true;
+        }
+
+
+
+
+    }
+}

@@ -1,0 +1,137 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using SAPbobsCOM;
+using SAPbouiCOM;
+using System.Xml;
+using System.Xml.Linq;
+
+namespace Cliente
+{
+    public class EXO_60051
+    {
+
+        public EXO_60051()
+        { }
+
+        public bool ItemEvent(EXO_Generales.EXO_infoItemEvent infoEvento)
+        {
+            switch (infoEvento.EventType)
+            {
+                 case BoEventTypes.et_FORM_LOAD:
+                    #region Creo el boton
+                    if (!infoEvento.BeforeAction)
+                    {
+                        if (!infoEvento.BeforeAction)
+                        {
+                            SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);                            
+                            SAPbouiCOM.Item oItem = oForm.Items.Add("btnImpSel", SAPbouiCOM.BoFormItemTypes.it_BUTTON);
+                            oItem.Left = oForm.Items.Item("100").Left - oForm.Items.Item("1").Width - 20;
+                            oItem.Width = oForm.Items.Item("100").Width + 10;
+                            oItem.Top = oForm.Items.Item("100").Top;
+                            oItem.FontSize = oForm.Items.Item("100").FontSize;
+                            oItem.Height = oForm.Items.Item("100").Height;
+
+                            ((SAPbouiCOM.Button)oForm.Items.Item("btnImpSel").Specific).Caption = "Imp. Selección";
+                            oItem.Visible = true;
+                        }
+                    }                    
+                    #endregion
+                    break;
+
+                case BoEventTypes.et_ITEM_PRESSED:
+                    if (!infoEvento.BeforeAction && infoEvento.ActionSuccess && infoEvento.ItemUID == "btnImpSel")
+                    {
+                        SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+                        bool ExistenLineas = false;
+
+                        string Archivo = "CartaRemesa";
+
+                        #region Generar Fichero XML
+                        XmlDocument oXML = new XmlDocument();
+                        XmlNode oBase, oTabla;
+                        XmlAttribute[] oCampo = new XmlAttribute[15];
+                        //Creao la base de datos            
+                        oBase = oXML.CreateElement("BaseXML");
+                        oXML.AppendChild(oBase);
+
+                        //Tabla con el banco
+                        string BankCode = ((SAPbouiCOM.ComboBox)oForm.Items.Item("46").Specific).Selected.Value;
+                        string Country = ((SAPbouiCOM.ComboBox)oForm.Items.Item("45").Specific).Selected.Value;
+                        string Account = ((SAPbouiCOM.ComboBox)oForm.Items.Item("49").Specific).Selected.Value;
+                        oTabla = oXML.CreateElement("Banco");
+                        oCampo[1] = oXML.CreateAttribute("NombreBanco");
+                        oCampo[2] = oXML.CreateAttribute("CalleBanco");
+                        oCampo[3] = oXML.CreateAttribute("CPBanco");
+                        oCampo[4] = oXML.CreateAttribute("CiudadBanco");
+                        oCampo[5] = oXML.CreateAttribute("ProvinBanco");
+                        oCampo[6] = oXML.CreateAttribute("AttBanco");
+                        oCampo[7] = oXML.CreateAttribute("Cuenta");
+                        oCampo[1].InnerText = Utilidades.DameValorFUNDI("ODSC", "BankName", "BankCode ='" + BankCode + "' AND CountryCod = '" + Country + "'");
+                        oCampo[2].InnerText = Utilidades.DameValorFUNDI("DSC1", "Street", "BankCode ='" + BankCode + "' AND Country = '" + Country + "' AND Account ='" + Account + "'");
+                        oCampo[3].InnerText = Utilidades.DameValorFUNDI("DSC1", "ZipCode", "BankCode ='" + BankCode + "' AND Country = '" + Country + "' AND Account ='" + Account + "'");
+                        oCampo[4].InnerText = Utilidades.DameValorFUNDI("DSC1", "City", "BankCode ='" + BankCode + "' AND Country = '" + Country + "' AND Account ='" + Account + "'");
+                        oCampo[5].InnerText = Utilidades.DameValorFUNDI("DSC1", "County", "BankCode ='" + BankCode + "' AND Country = '" + Country + "' AND Account ='" + Account + "'");
+                        oCampo[6].InnerText = "";
+                        oCampo[7].InnerText = Account;
+                        oTabla.Attributes.Append(oCampo[1]);
+                        oTabla.Attributes.Append(oCampo[2]);
+                        oTabla.Attributes.Append(oCampo[3]);
+                        oTabla.Attributes.Append(oCampo[4]);
+                        oTabla.Attributes.Append(oCampo[5]);
+                        oTabla.Attributes.Append(oCampo[6]);
+                        oTabla.Attributes.Append(oCampo[7]);
+                        oXML.DocumentElement.AppendChild(oTabla);
+
+                        //Para la tabla                                
+                        SAPbouiCOM.Matrix oMatrix = (SAPbouiCOM.Matrix)oForm.Items.Item("5").Specific;
+                        for (int nCont = 1; nCont <= oMatrix.VisualRowCount; nCont++)
+                        {
+                            SAPbouiCOM.CheckBox oCheckBox = (SAPbouiCOM.CheckBox)oMatrix.Columns.Item("9").Cells.Item(nCont).Specific;
+                            if (oCheckBox.Checked)
+                            {
+                                oTabla = oXML.CreateElement("Efectos");
+                                oCampo[1] = oXML.CreateAttribute("CardName");
+                                oCampo[2] = oXML.CreateAttribute("Importe");
+                                oCampo[3] = oXML.CreateAttribute("ViaPago");
+                                oCampo[4] = oXML.CreateAttribute("FechaVto");
+                                oCampo[5] = oXML.CreateAttribute("FechaRemesa");
+                                oCampo[6] = oXML.CreateAttribute("DescripViaPago");
+                                oCampo[1].InnerText = ((SAPbouiCOM.EditText)oMatrix.Columns.Item("3").Cells.Item(nCont).Specific).String;
+                                oCampo[2].InnerText = ((SAPbouiCOM.EditText)oMatrix.Columns.Item("2").Cells.Item(nCont).Specific).String;
+                                oCampo[3].InnerText = ((SAPbouiCOM.EditText)oMatrix.Columns.Item("13").Cells.Item(nCont).Specific).String;
+                                oCampo[4].InnerText = ((SAPbouiCOM.EditText)oMatrix.Columns.Item("17").Cells.Item(nCont).Specific).String;
+                                oCampo[5].InnerText = ((SAPbouiCOM.EditText)oMatrix.Columns.Item("4").Cells.Item(nCont).Specific).String;
+                                oCampo[6].InnerText = ((SAPbouiCOM.EditText)oMatrix.Columns.Item("12").Cells.Item(nCont).Specific).String;
+                                oTabla.Attributes.Append(oCampo[1]);
+                                oTabla.Attributes.Append(oCampo[2]);
+                                oTabla.Attributes.Append(oCampo[3]);
+                                oTabla.Attributes.Append(oCampo[4]);
+                                oTabla.Attributes.Append(oCampo[5]);
+                                oTabla.Attributes.Append(oCampo[6]);
+                                oXML.DocumentElement.AppendChild(oTabla);
+                                ExistenLineas = true;
+                            }
+                        }
+                        oXML.Save(Utilidades.DameValorFUNDI("[@SIA_PARAM]", "U_Ruta", "U_TipoRuta = 'Destino Ficheros Temporales En Local'") + Archivo + ".xml");
+                        #endregion
+                        if (ExistenLineas)
+                        {
+                            Utilidades.Informe(System.IO.Path.Combine(Matriz.oGlobal.conexionSAP.pathCrystal, Archivo) + ".rpt", "");
+                        }
+                        else
+                        {
+                            Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("No hay lineas seleccionadas", 1, "Ok", "", "");
+                        }
+                    }
+                    break;
+
+            }
+
+            return true;
+        }
+
+    }
+
+}

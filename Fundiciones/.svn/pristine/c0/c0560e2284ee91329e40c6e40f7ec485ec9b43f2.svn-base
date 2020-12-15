@@ -1,0 +1,65 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using SAPbobsCOM;
+using SAPbouiCOM;
+
+namespace Cliente
+{
+    public class EXO_PLANO
+    {
+
+        public EXO_PLANO()
+        { }
+
+        public bool ItemEvent(EXO_Generales.EXO_infoItemEvent infoEvento)
+        {
+            switch (infoEvento.EventType)
+            {
+                case BoEventTypes.et_VALIDATE:
+                    string Articulo;
+                    if (infoEvento.ColUID == "U_cod_artic" && !infoEvento.BeforeAction && infoEvento.ActionSuccess && infoEvento.ItemChanged)
+                        {
+                            SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+                            if (oForm.Mode == SAPbouiCOM.BoFormMode.fm_ADD_MODE || oForm.Mode  == SAPbouiCOM.BoFormMode.fm_UPDATE_MODE)
+                            {                                
+                                SAPbouiCOM.Matrix oMatrix = (SAPbouiCOM.Matrix)oForm.Items.Item("3").Specific;
+                                SAPbouiCOM.EditText oTxt = (SAPbouiCOM.EditText)oMatrix.Columns.Item("U_cod_artic").Cells.Item(infoEvento.Row).Specific;
+                                Articulo = oTxt.Value;
+                                if (Articulo == "")
+                                {
+                                    return false;
+                                }
+                                if (Utilidades.DameValorFUNDI("[OITM]", "ItemCode", "ItemCode='" + Articulo + "'") == "")
+                                {
+                                    Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("No existe ningún artículo con ese código", 1, "Ok", "", "");
+                                    oTxt = (SAPbouiCOM.EditText)oMatrix.Columns.Item("U_cod_artic").Cells.Item(infoEvento.Row).Specific;
+                                    oTxt.Value = "";
+                                    oTxt.Active = true;
+                                    return false;
+                                }
+                                if (Utilidades.DameValorFUNDI("[@SIA_PLANO]", "U_cod_artic", "U_cod_artic='" + Articulo + "'") != "")
+                                {
+                                    Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("Ya existe una línea con ese código de artículo ", 1, "Ok", "", "");
+                                    oTxt = (SAPbouiCOM.EditText)oMatrix.Columns.Item("U_cod_artic").Cells.Item(infoEvento.Row).Specific;
+                                    oTxt.Value = "";
+                                    oTxt.Active = true;
+                                    return false;
+                                }
+                                oTxt = (SAPbouiCOM.EditText)oMatrix.Columns.Item("Code").Cells.Item(infoEvento.Row).Specific;
+                                string UltimoValor = Utilidades.UltimoCodeFUNDI("[@SIA_PLANO]");
+                                oTxt.Value = Utilidades.CompletaConCerosFUNDI (8, Utilidades.UltimoCodeFUNDI("[@SIA_PLANO]"), 1);
+                                oTxt = (SAPbouiCOM.EditText)oMatrix.Columns.Item("Name").Cells.Item(infoEvento.Row).Specific;
+                                oTxt.Value = Utilidades.CompletaConCerosFUNDI(8, Utilidades.UltimoCodeFUNDI("[@SIA_PLANO]"), 1);
+                            }
+                        }
+
+                    break;
+            }
+
+            return true;
+        }
+
+    }
+}

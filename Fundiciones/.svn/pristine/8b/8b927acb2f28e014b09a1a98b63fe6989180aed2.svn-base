@@ -1,0 +1,86 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using SAPbobsCOM;
+using SAPbouiCOM;
+
+namespace Cliente
+{
+    public class EXO_41
+    {
+        public EXO_41()
+        { }
+
+        public bool ItemEvent(EXO_Generales.EXO_infoItemEvent infoEvento)
+        {
+            switch (infoEvento.EventType)
+            {
+                case BoEventTypes.et_VALIDATE:
+                    if (infoEvento.ColUID == "2" && !infoEvento.BeforeAction && infoEvento.ActionSuccess && infoEvento.ItemChanged)
+                    {
+                        #region Valido la ubicacion
+                        SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+
+                            if (oForm.Mode == SAPbouiCOM.BoFormMode.fm_ADD_MODE || oForm.Mode == SAPbouiCOM.BoFormMode.fm_UPDATE_MODE)
+                            {
+                                int i = 0;
+                                SAPbouiCOM.Matrix oMatrix;                                 
+                                string Almacen;                                
+                                oMatrix = (SAPbouiCOM.Matrix)oForm.Items.Item("35").Specific;
+                                for (i = 1; i <= oMatrix.RowCount; i++)
+                                {
+                                    if (oMatrix.IsRowSelected(i))
+                                    {
+                                        break;
+                                    }
+                                }                                
+                                Almacen = ((SAPbouiCOM.EditText)oMatrix.Columns.Item("40").Cells.Item(i).Specific).Value;
+                                oMatrix = (SAPbouiCOM.Matrix)oForm.Items.Item("3").Specific;
+                                SAPbouiCOM.EditText oTxt = (SAPbouiCOM.EditText)oMatrix.Columns.Item("2").Cells.Item(infoEvento.Row).Specific;
+                                if (!Utilidades.TodasMayusculasFUNDI(oTxt.String))
+                                {
+                                    oTxt.String = oTxt.String.ToUpper();
+                                }
+                                string Ubicacion = oTxt.Value;
+                                if (Ubicacion == "")
+                                {
+                                    return false;
+                                }
+
+                                if (Utilidades.DameValorFUNDI ("[@SIA_UBIC]", "U_cod_ubic", "U_cod_ubic='" + Ubicacion + "' AND U_almacen='" + Almacen + "'") == "")
+                                {
+
+                                    Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("No existe ninguna ubicación con ese código para ese almacén", 1, "Ok", "", "");
+                                    oTxt = (SAPbouiCOM.EditText)oMatrix.Columns.Item("2").Cells.Item(infoEvento.Row).Specific;
+                                    oTxt.Value = "";
+                                    return false;
+                                }
+                            }
+                        #endregion
+                    }
+                    break;
+
+                case BoEventTypes.et_GOT_FOCUS:                    
+                    if (infoEvento.ColUID != "2" && !infoEvento.BeforeAction && infoEvento.ActionSuccess)
+                    {
+                        #region Valido que no la dejen en blanco                                                
+                        SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+
+                        SAPbouiCOM.Matrix oMatrix = (SAPbouiCOM.Matrix)oForm.Items.Item("3").Specific;
+                        SAPbouiCOM.EditText oTxt = (SAPbouiCOM.EditText)oMatrix.Columns.Item("2").Cells.Item(infoEvento.Row).Specific;
+                        string Ubicacion = oTxt.Value;
+                        if (Ubicacion == "")
+                        {
+                          oTxt.Active = true;
+                          return false;
+                        }
+                        #endregion
+                      }
+                      break;                    
+            }
+
+            return true;
+        }
+    }
+}

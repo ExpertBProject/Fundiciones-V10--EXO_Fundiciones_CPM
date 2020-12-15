@@ -1,0 +1,101 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using SAPbobsCOM;
+using SAPbouiCOM;
+
+namespace Cliente
+{
+    public class EXO_134
+    {
+        public EXO_134()
+        { }
+
+        public bool ItemEvent(EXO_Generales.EXO_infoItemEvent infoEvento)
+        {
+            switch (infoEvento.EventType)
+            {
+                case BoEventTypes.et_FORM_LOAD:
+                    if (!infoEvento.BeforeAction)
+                    {
+                        #region Creo la pestaña y ñas casillas
+                        SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);                        
+                        oForm.DataSources.UserDataSources.Add("dsFolder", SAPbouiCOM.BoDataType.dt_SHORT_TEXT, 1);
+
+                        SAPbouiCOM.Item oItem = oForm.Items.Add("fldCarProp", SAPbouiCOM.BoFormItemTypes.it_FOLDER);
+                        oItem.Left = oForm.Items.Item("9").Left + oForm.Items.Item("9").Width;
+                        oItem.Width = 100;
+                        oItem.Top = oForm.Items.Item("9").Top;
+                        oItem.Height = oForm.Items.Item("9").Height;
+                        oItem.AffectsFormMode = false;                        
+                        ((SAPbouiCOM.Folder)(oItem.Specific)).Caption = "Carac. Propias";
+                        ((SAPbouiCOM.Folder)(oItem.Specific)).DataBind.SetBound(true, "", "dsFolder");
+                        ((SAPbouiCOM.Folder)(oItem.Specific)).GroupWith("9");
+
+                        #region Número Copias Facturas Venta
+                        oItem = oForm.Items.Add("txtNCFV", SAPbouiCOM.BoFormItemTypes.it_EDIT);
+                        oItem.Left = oForm.Items.Item("43").Left;
+                        oItem.Width = oForm.Items.Item("43").Width;
+                        oItem.Top = oForm.Items.Item("43").Top + 10;
+                        oItem.Height = oForm.Items.Item("43").Height;
+                        SAPbouiCOM.EditText  oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtNCFV").Specific;
+                        oEditText.DataBind.SetBound(true, "OCRD", "U_NumCopFacVen");
+                        oItem.FromPane = 99;
+                        oItem.ToPane = 99;
+                        oItem = oForm.Items.Add("lblNCFV", SAPbouiCOM.BoFormItemTypes.it_STATIC);
+                        oItem.Left = oForm.Items.Item("44").Left;
+                        oItem.Width = oForm.Items.Item("44").Width;
+                        oItem.Top = oForm.Items.Item("txtNCFV").Top;
+                        oItem.Height = oForm.Items.Item("44").Height;
+                        oItem.LinkTo = "txtNCFV";
+                        (((SAPbouiCOM.StaticText)(oItem.Specific))).Caption = "Copias Factura Ventas";
+                        oItem.FromPane = 99;
+                        oItem.ToPane = 99;
+                        #endregion
+
+                        #region Número Copias Albarán Venta
+                        oItem = oForm.Items.Add("txtNCAV", SAPbouiCOM.BoFormItemTypes.it_EDIT);
+                        oItem.Left = oForm.Items.Item("45").Left;
+                        oItem.Width = oForm.Items.Item("45").Width;
+                        oItem.Top = oForm.Items.Item("txtNCFV").Top + oForm.Items.Item("txtNCFV").Height + 10;
+                        oItem.Height = oForm.Items.Item("45").Height;
+                        oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtNCAV").Specific;
+                        oEditText.DataBind.SetBound(true, "OCRD", "U_NumCopAlbVen");
+                        oItem.FromPane = 99;
+                        oItem.ToPane = 99;
+                        oItem = oForm.Items.Add("lblNCAV", SAPbouiCOM.BoFormItemTypes.it_STATIC);
+                        oItem.Left = oForm.Items.Item("46").Left;
+                        oItem.Width = oForm.Items.Item("46").Width;
+                        oItem.Top = oForm.Items.Item("txtNCAV").Top;
+                        oItem.Height = oForm.Items.Item("46").Height;
+                        oItem.LinkTo = "txtNCAV";
+                        (((SAPbouiCOM.StaticText)(oItem.Specific))).Caption = "Copias Albarán Ventas";
+                        oItem.FromPane = 99;
+                        oItem.ToPane = 99;
+                        #endregion
+
+                        #endregion
+                    }
+                    break;
+
+                case BoEventTypes.et_ITEM_PRESSED:
+                    #region Click en el forlder
+                    if ( !infoEvento.BeforeAction)
+                    {
+                        SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);                        
+                        if (infoEvento.ItemUID == "fldCarProp")
+                        {
+                            oForm.PaneLevel = 99;
+                        }
+                    }
+                    #endregion
+                    break;
+            }
+            
+
+            return true;
+        }
+
+    }
+}

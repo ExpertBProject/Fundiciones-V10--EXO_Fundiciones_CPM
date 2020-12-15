@@ -1,0 +1,77 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using SAPbobsCOM;
+using SAPbouiCOM;
+
+namespace Cliente
+{
+    public class EXO_ListExpert
+    {
+        public EXO_ListExpert()
+        { }
+
+
+        public EXO_ListExpert(bool lCreacion)
+        {
+            SAPbouiCOM.Form oForm = null;
+
+            #region CargoScreen
+            SAPbouiCOM.FormCreationParams oParametrosCreacion = (SAPbouiCOM.FormCreationParams)(Matriz.oGlobal.conexionSAP.SBOApp.CreateObject(SAPbouiCOM.BoCreatableObjectType.cot_FormCreationParams));
+
+            Type Tipo = this.GetType();
+            string strXML = Utilidades.LeoQueryFich("EXO_ListadosExpert.xml", Tipo);
+            oParametrosCreacion.XmlData = strXML;
+            oParametrosCreacion.UniqueID = "";
+            oParametrosCreacion.BorderStyle = BoFormBorderStyle.fbs_Fixed;
+
+            try
+            {
+                oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.AddEx(oParametrosCreacion);
+            }
+            catch (Exception ex)
+            {
+                Matriz.oGlobal.conexionSAP.SBOApp.MessageBox(ex.Message, 1, "Ok", "", "");                
+            }
+            #endregion
+
+
+            oForm.ReportType = Utilidades.NuevoReportType("Listados Expert", "Listados Expert", "LISTEXPERT", "MnuXList");
+
+         }
+
+
+        //public bool ItemEvent(EXO_Generales.EXO_infoItemEvent infoEvento)
+        //{
+        //    switch (infoEvento.EventType)
+        //    {
+        //        case BoEventTypes.et_ITEM_PRESSED:
+
+        //            if (infoEvento.ItemUID == "btnImp" && !infoEvento.BeforeAction)
+        //            {
+        //                ReportLayoutsService svr = Matriz.oGlobal.conexionSAP.compañia.GetCompanyService().GetBusinessService(ServiceTypes.ReportLayoutsService) as ReportLayoutsService;
+        //                try
+        //                {
+        //                    ReportLayoutPrintParams printparams = svr.GetDataInterface(ReportLayoutsServiceDataInterfaces.rlsdiReportLayoutPrintParams) as ReportLayoutPrintParams;
+        //                    //printparams.DocEntry = 1;                            
+        //                    printparams.LayoutCode = "A0020002";                            
+        //                    svr.Print(printparams);                            
+        //                }
+        //                catch (Exception ex)
+        //                {
+        //                    System.Windows.Forms.MessageBox.Show(ex.Message);
+        //                }
+
+        //            }
+
+        //            break;
+        //    }
+
+        //    return true;
+        //}
+
+
+
+    }
+}

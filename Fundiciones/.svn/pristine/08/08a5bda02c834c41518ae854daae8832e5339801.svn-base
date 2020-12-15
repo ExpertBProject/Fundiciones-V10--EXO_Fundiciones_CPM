@@ -1,0 +1,95 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using SAPbobsCOM;
+using SAPbouiCOM;
+
+namespace Cliente
+{
+    public class EXO_606
+    {
+        public EXO_606()
+        {
+        }
+
+        public bool ItemEvent(EXO_Generales.EXO_infoItemEvent infoEvento)
+        {
+            switch (infoEvento.EventType)
+            {
+                case BoEventTypes.et_FORM_LOAD:
+                    if (!infoEvento.BeforeAction)
+                    {
+                        SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+                        SAPbouiCOM.Item oItem = null;
+                        #region Crear Botones                        
+                        oItem = oForm.Items.Add("btnNorma58", SAPbouiCOM.BoFormItemTypes.it_BUTTON);
+                        oItem.Left = oForm.Items.Item("2").Left + oForm.Items.Item("2").Width + 20;
+                        oItem.Top = oForm.Items.Item("2").Top;
+                        oItem.FontSize = oForm.Items.Item("2").FontSize;
+                        oItem.Height = oForm.Items.Item("2").Height;
+                        ((SAPbouiCOM.Button)oForm.Items.Item("btnNorma58").Specific).Caption = "Norma 58";
+                        oItem.Visible = true;
+                        oItem = oForm.Items.Add("btnNorma19", SAPbouiCOM.BoFormItemTypes.it_BUTTON);
+                        oItem.Left = oForm.Items.Item("btnNorma58").Left + oForm.Items.Item("btnNorma58").Width + 20;
+                        oItem.Top = oForm.Items.Item("btnNorma58").Top;
+                        oItem.FontSize = oForm.Items.Item("btnNorma58").FontSize;
+                        oItem.Height = oForm.Items.Item("btnNorma58").Height;
+                        ((SAPbouiCOM.Button)oForm.Items.Item("btnNorma19").Specific).Caption = "Norma 19";
+                        oItem.Visible = true;                        
+                        #endregion
+                    }
+                    break;
+
+                case BoEventTypes.et_ITEM_PRESSED:
+
+                    #region Norma 58
+                    if (infoEvento.ItemUID == "btnNorma58" && !infoEvento.BeforeAction)
+                    {
+                        SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+                        string DirectorioActual = Environment.CurrentDirectory;
+                        string Ruta = TratamientoFicheros.EscojoFichero("");
+                        if (Ruta != "")
+                        {
+                            csNormas Normas = new csNormas();
+                            Normas.GenerarFicheroNorma58(Ruta, oForm);
+                        }
+                        else
+                        {
+                            Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("Se debe indicar un fichero obligatoriamente", 1, "OK", "", "");
+                        }
+                        Environment.CurrentDirectory = DirectorioActual;
+                    }
+                    #endregion
+
+                    #region Norma 19
+                    if (infoEvento.ItemUID == "btnNorma19" && !infoEvento.BeforeAction)
+                    {
+                        string DirectorioActual = Environment.CurrentDirectory;
+                        string Ruta = TratamientoFicheros.EscojoFichero("");
+                        if (Ruta != "")
+                        {
+                            SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+
+                            csNormas Normas2 = new csNormas();
+                            Normas2.GeneroFicheroNorma19(Ruta, oForm);
+                        }
+                        else
+                        {
+                            Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("Se debe indicar un fichero obligatoriamente", 1, "OK", "", "");
+                        }
+                        Environment.CurrentDirectory = DirectorioActual;                        
+                    }
+                    #endregion
+
+
+                    break;
+
+            }
+
+            return true;
+        }
+
+
+    }
+}

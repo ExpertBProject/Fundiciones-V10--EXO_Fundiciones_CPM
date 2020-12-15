@@ -1,0 +1,221 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using SAPbobsCOM;
+using SAPbouiCOM;
+
+namespace Cliente
+{
+    public class EXO_AsiGasto
+    {
+
+        public EXO_AsiGasto()
+        {
+        }
+
+        public EXO_AsiGasto(int nNumeroAsi)
+        {
+            SAPbouiCOM.Form oForm = null;
+
+            #region CargoScreen
+            SAPbouiCOM.FormCreationParams oParametrosCreacion = (SAPbouiCOM.FormCreationParams)(Matriz.oGlobal.conexionSAP.SBOApp.CreateObject(SAPbouiCOM.BoCreatableObjectType.cot_FormCreationParams));
+
+            Type Tipo = this.GetType();
+            string strXML = Utilidades.LeoQueryFich("EXO_AsientoGastos.xml", Tipo);
+            oParametrosCreacion.XmlData = strXML;
+            oParametrosCreacion.UniqueID = "";
+            oParametrosCreacion.BorderStyle = BoFormBorderStyle.fbs_Fixed;
+
+            try
+            {
+                oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.AddEx(oParametrosCreacion);
+            }
+            catch (Exception ex)
+            {
+                Matriz.oGlobal.conexionSAP.SBOApp.MessageBox(ex.Message, 1, "Ok", "", "");                
+            }
+            #endregion
+
+            oForm.DataSources.UserDataSources.Item("dsAsiPrev").ValueEx = nNumeroAsi.ToString();
+
+            ModificoCFL(ref oForm);
+        }
+
+        public bool ItemEvent(EXO_Generales.EXO_infoItemEvent infoEvento)
+        {
+            SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+
+            switch (infoEvento.EventType)
+            {
+                case BoEventTypes.et_ITEM_PRESSED:
+                    #region Crear Asiento
+                    if (infoEvento.ItemUID == "btnCreAsi" && !infoEvento.BeforeAction && infoEvento.ActionSuccess)
+                    {
+                        if (ValidarProceso(ref oForm))
+                        {
+                            
+                            int RetVal;
+                            string Serie;
+                            string RefDate;
+                            string DueDate;
+                            string TaxDate;
+                            string Ref2;
+                            SAPbobsCOM.JournalEntries oJournalEntries;
+                            SAPbobsCOM.JournalEntries_Lines oJournalEntriesLineas;
+                            oJournalEntries = (SAPbobsCOM.JournalEntries)(Matriz.oGlobal.conexionSAP.compañia.GetBusinessObject(SAPbobsCOM.BoObjectTypes.oJournalEntries));
+
+                            int nNumeroAsiento = Convert.ToInt32(oForm.DataSources.UserDataSources.Item("dsAsiPrev").ValueEx);
+                            oJournalEntries.GetByKey(nNumeroAsiento);
+
+                            Serie = oJournalEntries.Series.ToString();
+                            RefDate = oJournalEntries.ReferenceDate.ToString();
+                            DueDate = oJournalEntries.DueDate.ToString();
+                            TaxDate = oJournalEntries.TaxDate.ToString();
+                            Ref2 = oJournalEntries.Reference2.ToString();
+                            oJournalEntries = null;
+                            oJournalEntries = (SAPbobsCOM.JournalEntries)(Matriz.oGlobal.conexionSAP.compañia.GetBusinessObject(SAPbobsCOM.BoObjectTypes.oJournalEntries));
+                            oJournalEntries.Series = Convert.ToInt32(Serie);
+                            oJournalEntries.ReferenceDate = Convert.ToDateTime(RefDate);
+                            oJournalEntries.DueDate = Convert.ToDateTime(DueDate);
+                            oJournalEntries.TaxDate = Convert.ToDateTime(TaxDate);
+                            oJournalEntries.Reference2 = Ref2;
+                            oJournalEntriesLineas = oJournalEntries.Lines;                            
+                            oJournalEntriesLineas.ShortName = ((SAPbouiCOM.EditText)oForm.Items.Item("txtDeb").Specific).String;
+                            SAPbouiCOM.EditText oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtMon").Specific;
+                            if (oEditText.String == "EUR" || oEditText.String == "")
+                            {
+                                oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtImp").Specific;                                
+                                oJournalEntriesLineas.Debit = Conversiones.ValueSAPToDoubleSistema(oEditText.Value);
+                            }
+                            else
+                            {
+                                oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtMon").Specific;
+                                oJournalEntriesLineas.FCCurrency = oEditText.Value;
+                                oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtImp").Specific;
+                                oJournalEntriesLineas.FCDebit = Conversiones.ValueSAPToDoubleSistema(oEditText.Value);
+                            }
+                            oJournalEntriesLineas.Add();
+                            oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtHab").Specific;
+                            oJournalEntriesLineas.ShortName = oEditText.String;
+                            oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtMon").Specific;
+                            if (oEditText.String == "EUR" || oEditText.String == "")
+                            {
+                                oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtImp").Specific;
+                                oJournalEntriesLineas.Credit = Conversiones.ValueSAPToDoubleSistema(oEditText.Value);
+                            }
+                            else
+                            {
+                                oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtMon").Specific;
+                                oJournalEntriesLineas.FCCurrency = oEditText.Value;
+                                oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtImp").Specific;
+                                oJournalEntriesLineas.FCCredit = Conversiones.ValueSAPToDoubleSistema(oEditText.Value);
+                            }
+                            oJournalEntriesLineas.AdditionalReference = nNumeroAsiento.ToString();
+                            RetVal = oJournalEntries.Add();
+                            if (RetVal != 0)
+                            {
+                                Matriz.oGlobal.conexionSAP.SBOApp.MessageBox(Matriz.oGlobal.conexionSAP.compañia.GetLastErrorDescription(), 1, "", "", "");
+                            }
+                            else
+                            {
+                                Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("Asiento generado correctamente", 1, "", "", "");                             
+                                oForm.Close();
+                                SAPbouiCOM.Form oForm392 = Utilidades.BuscoFormLanzado("392");
+                                if (oForm != null)
+                                {
+                                    oForm392.Select();
+                                    Matriz.oGlobal.conexionSAP.SBOApp.ActivateMenuItem("1291");
+                                }
+                             }
+                        }
+                    }
+                    #endregion
+
+                    break;
+
+                case BoEventTypes.et_CHOOSE_FROM_LIST:
+                    if (!infoEvento.BeforeAction && infoEvento.ActionSuccess && infoEvento.SelectedObjects != null)
+                    {
+                        switch (infoEvento.ItemUID)
+                        {
+                            #region Cuenta Debe
+                            case "txtDeb":
+                                oForm.DataSources.UserDataSources.Item("dsDeb").ValueEx = infoEvento.SelectedObjects.GetValue("AcctCode", 0).ToString();
+                                break;
+                            #endregion
+
+                            #region Cuenta Haber
+                            case "txtHab":
+                                oForm.DataSources.UserDataSources.Item("dsHab").ValueEx = infoEvento.SelectedObjects.GetValue("AcctCode", 0).ToString();
+                                break;
+                            #endregion
+
+                            #region Cuenta Debe
+                            case "txtMon":
+                                oForm.DataSources.UserDataSources.Item("dsMon").ValueEx = infoEvento.SelectedObjects.GetValue("CurrCode", 0).ToString();
+                                break;
+                            #endregion                      
+                        }
+                    }
+                    break;
+
+            }
+
+            return true;
+        }
+
+        private bool ValidarProceso(ref SAPbouiCOM.Form oForm)
+        {
+            SAPbouiCOM.EditText oEditText = null;
+            try
+            {
+                //csUtilidades csUtilidades = new csUtilidades();
+                oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtDeb").Specific;
+                if (oEditText.String == "")
+                {
+                    oEditText.Active = true;
+                    Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("La cuenta 'debe' debe existir", 1, "Ok", "", "");
+                    return false;
+                }
+                oEditText = (SAPbouiCOM.EditText)oForm.Items.Item("txtHab").Specific;
+                if (oEditText.String == "")
+                {
+                    oEditText.Active = true;
+                    Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("La cuenta 'haber' debe existir", 1, "Ok", "", "");
+                    return false;
+                }                
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void ModificoCFL(ref SAPbouiCOM.Form oForm)
+        {
+            #region Cuenta debe
+            oForm.ChooseFromLists.Item("CFLCueDeb").SetConditions(null);
+            SAPbouiCOM.Conditions oCons = oForm.ChooseFromLists.Item("CFLCueDeb").GetConditions();
+
+            SAPbouiCOM.Condition oCon = oCons.Add();
+            oCon.Alias = "Postable";
+            oCon.Operation = SAPbouiCOM.BoConditionOperation.co_EQUAL;
+            oCon.CondVal = "Y";
+            oForm.ChooseFromLists.Item("CFLCueDeb").SetConditions(oCons);
+            #endregion
+
+            #region Cuenta haber
+            oForm.ChooseFromLists.Item("CFLCueHab").SetConditions(null);
+            oCons = oForm.ChooseFromLists.Item("CFLCueHab").GetConditions();
+
+            oCon = oCons.Add();
+            oCon.Alias = "Postable";
+            oCon.Operation = SAPbouiCOM.BoConditionOperation.co_EQUAL;
+            oCon.CondVal = "Y";
+            oForm.ChooseFromLists.Item("CFLCueHab").SetConditions(oCons);
+            #endregion
+        }       
+    }
+}

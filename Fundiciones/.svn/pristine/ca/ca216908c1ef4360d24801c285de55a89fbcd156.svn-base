@@ -1,0 +1,68 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using SAPbobsCOM;
+using SAPbouiCOM;
+
+namespace Cliente
+{
+    public class EXO_3002
+    {
+        public EXO_3002()
+        {             
+        }
+
+        public bool ItemEvent(EXO_Generales.EXO_infoItemEvent infoEvento)
+        {
+            switch (infoEvento.EventType)
+            {
+                case BoEventTypes.et_FORM_LOAD:
+                      if (!infoEvento.BeforeAction)
+                      {
+                          SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+                          SAPbouiCOM.Item oItem = null;                            
+                          oItem = oForm.Items.Add("btnBorrar", SAPbouiCOM.BoFormItemTypes.it_BUTTON);
+                          oItem.Left = oForm.Items.Item("2").Left + oForm.Items.Item("2").Width + 20;
+                          oItem.Width = oForm.Items.Item("2").Width + 30;
+                          oItem.Top = oForm.Items.Item("2").Top;
+                          oItem.FontSize = oForm.Items.Item("2").FontSize;
+                          oItem.Height = oForm.Items.Item("2").Height;
+
+                          ((SAPbouiCOM.Button)oForm.Items.Item("btnBorrar").Specific).Caption = "Borrar Documentos";
+                          oItem.Visible = true;
+                        }
+                    break;
+
+                case BoEventTypes.et_ITEM_PRESSED:
+                      if (!infoEvento.BeforeAction && infoEvento.ActionSuccess && infoEvento.ItemUID == "btnBorrar")
+                      {
+                          SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);                    
+                          if (oForm.Mode == SAPbouiCOM.BoFormMode.fm_OK_MODE)
+                          {
+                              if (Matriz.oGlobal.conexionSAP.SBOApp.MessageBox("¿ Desea eliminar los documentos preliminares ?", 1,"Si", "No", "") == 1)
+                              {                                                                                                  
+                                SAPbobsCOM.Documents oDrafts;
+                                oDrafts = (SAPbobsCOM.Documents)(Matriz.oGlobal.conexionSAP.compañia.GetBusinessObject(SAPbobsCOM.BoObjectTypes.oDrafts));
+                                SAPbouiCOM.Matrix  oMatrix = (SAPbouiCOM.Matrix)oForm.Items.Item("3").Specific;
+                                for (int i = 1; i <= oMatrix.VisualRowCount; i++)
+                                {
+                                  oDrafts.GetByKey(Convert.ToInt32(((SAPbouiCOM.EditText)oMatrix.Columns.Item("1").Cells.Item(i).Specific).String));
+                                  oDrafts.Remove();
+                                    Matriz.oGlobal.conexionSAP.SBOApp.SetStatusBarMessage("Eliminado documento " + i.ToString(), BoMessageTime.bmt_Short, false);
+                                }
+                                oForm.Close();
+                              }
+                          }
+                      }
+                    break;                                                         
+            }
+
+            return true;
+        }
+
+
+
+
+    }
+}
