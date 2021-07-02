@@ -1,0 +1,16 @@
+C:\DESARROLLO\PruebaC\Prueba2CS\Prueba2CS\bin\x86\Debug\Prueba2CS.dll
+C:\DESARROLLO\PruebaC\Prueba2CS\Prueba2CS\bin\x86\Debug\Prueba2CS.pdb
+C:\DESARROLLO\PruebaC\Prueba2CS\Prueba2CS\bin\x86\Debug\EXO_CleanCOM.dll
+C:\DESARROLLO\PruebaC\Prueba2CS\Prueba2CS\bin\x86\Debug\EXO_Generales.dll
+C:\DESARROLLO\PruebaC\Prueba2CS\Prueba2CS\obj\x86\Debug\Interop.SAPbobsCOM.dll
+C:\DESARROLLO\PruebaC\Prueba2CS\Prueba2CS\obj\x86\Debug\Interop.SAPbouiCOM.dll
+C:\DESARROLLO\PruebaC\Prueba2CS\Prueba2CS\obj\x86\Debug\Prueba2CS.csproj.ResolveComReference.cache
+C:\DESARROLLO\PruebaC\Prueba2CS\Prueba2CS\obj\x86\Debug\Prueba2CS.dll
+C:\DESARROLLO\PruebaC\Prueba2CS\Prueba2CS\obj\x86\Debug\Prueba2CS.pdb
+C:\DESARROLLO\PruebaC\Prueba2CS\Prueba2CS\bin\x86\Debug\EXO_BasicDLL.dll
+C:\DESARROLLO\PruebaC\Prueba2CS\Prueba2CS\bin\x86\Debug\EXO_DIAPI.dll
+C:\DESARROLLO\PruebaC\Prueba2CS\Prueba2CS\bin\x86\Debug\EXO_Log.dll
+C:\DESARROLLO\PruebaC\Prueba2CS\Prueba2CS\bin\x86\Debug\EXO_UIAPI.dll
+C:\DESARROLLO\PruebaC\Prueba2CS\Prueba2CS\bin\x86\Debug\Interop.SAPbouiCOM.dll
+C:\DESARROLLO\PruebaC\Prueba2CS\Prueba2CS\bin\x86\Debug\Interop.SAPbobsCOM.dll
+C:\DESARROLLO\PruebaC\Prueba2CS\Prueba2CS\obj\x86\Debug\Prueba2CS.csprojResolveAssemblyReference.cache

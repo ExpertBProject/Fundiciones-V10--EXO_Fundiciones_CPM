@@ -1,0 +1,15 @@
+C:\DESARROLLO\Imfaplas\Imfaplas\Imfaplas\Imfaplas\bin\debug\EXO_Imfaplas.dll
+C:\DESARROLLO\Imfaplas\Imfaplas\Imfaplas\Imfaplas\bin\debug\EXO_Imfaplas.pdb
+C:\DESARROLLO\Imfaplas\Imfaplas\Imfaplas\Imfaplas\bin\debug\EXO_BasicDLL.dll
+C:\DESARROLLO\Imfaplas\Imfaplas\Imfaplas\Imfaplas\bin\debug\EXO_CleanCOM.dll
+C:\DESARROLLO\Imfaplas\Imfaplas\Imfaplas\Imfaplas\bin\debug\EXO_DIAPI.dll
+C:\DESARROLLO\Imfaplas\Imfaplas\Imfaplas\Imfaplas\bin\debug\EXO_Generales.dll
+C:\DESARROLLO\Imfaplas\Imfaplas\Imfaplas\Imfaplas\bin\debug\EXO_Log.dll
+C:\DESARROLLO\Imfaplas\Imfaplas\Imfaplas\Imfaplas\bin\debug\EXO_UIAPI.dll
+C:\DESARROLLO\Imfaplas\Imfaplas\Imfaplas\Imfaplas\bin\debug\Interop.SAPbouiCOM.dll
+C:\DESARROLLO\Imfaplas\Imfaplas\Imfaplas\Imfaplas\bin\debug\Interop.SAPbobsCOM.dll
+C:\DESARROLLO\Imfaplas\Imfaplas\Imfaplas\Imfaplas\obj\Debug\Interop.SAPbobsCOM.dll
+C:\DESARROLLO\Imfaplas\Imfaplas\Imfaplas\Imfaplas\obj\Debug\Interop.SAPbouiCOM.dll
+C:\DESARROLLO\Imfaplas\Imfaplas\Imfaplas\Imfaplas\obj\Debug\Imfaplas.csproj.ResolveComReference.cache
+C:\DESARROLLO\Imfaplas\Imfaplas\Imfaplas\Imfaplas\obj\Debug\EXO_Imfaplas.dll
+C:\DESARROLLO\Imfaplas\Imfaplas\Imfaplas\Imfaplas\obj\Debug\EXO_Imfaplas.pdb

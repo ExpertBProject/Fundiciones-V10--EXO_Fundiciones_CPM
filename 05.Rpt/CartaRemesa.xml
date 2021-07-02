@@ -1,4 +1,0 @@
-<BaseXML>
-  <Banco NombreBanco="Nombre banco" CalleBanco="calle banco" CPBanco="CP BANCO" CiudadBanco="Ciudad banco" ProvinBanco="provin Banco" AttBanco="Att Banco" />
-  <Efectos CardName="90000474" Importe="190.84" ViaPago="08" FechaVto="10/09/2009" FechaRemesa="12/03/2009" />
-</BaseXML>

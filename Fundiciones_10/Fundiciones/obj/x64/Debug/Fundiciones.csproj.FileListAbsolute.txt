@@ -1,0 +1,4 @@
+E:\Desarrollo\Git\Oscar\Fundiciones\Fundiciones\Fundiciones\obj\x64\Debug\Fundiciones.csprojResolveAssemblyReference.cache
+E:\Desarrollo\Git\Oscar\Fundiciones\Fundiciones\Fundiciones\obj\x64\Debug\Interop.SAPbobsCOM.dll
+E:\Desarrollo\Git\Oscar\Fundiciones\Fundiciones\Fundiciones\obj\x64\Debug\Interop.SAPbouiCOM.dll
+E:\Desarrollo\Git\Oscar\Fundiciones\Fundiciones\Fundiciones\obj\x64\Debug\Fundiciones.csproj.ResolveComReference.cache
