@@ -2,38 +2,49 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Xml;
 using SAPbobsCOM;
 using SAPbouiCOM;
 
 namespace Cliente
 {
+
     public class Matriz : EXO_UIAPI.EXO_DLLBase
     {
-        public static  EXO_UIAPI.EXO_UIAPI oGlobal;
+        public enum ClasesObjetos { Numero, Caracter }
+
+        public struct Mensajes
+        {
+            public string Clave;
+            public ClasesObjetos TipoObjeto;
+            public string Objeto;
+            public string Mensaje;
+
+        }
+
+        public static EXO_UIAPI.EXO_UIAPI gen;
+        public static EXO_DIAPI.EXO_DIAPI conexionSAP;
+
         public static Type TypeMatriz;
         public static bool bModalDESCOMPUESTO = false;
-        //public static CrystalDecisions.CrystalReports.Engine.ReportDocument crReport = new CrystalDecisions.CrystalReports.Engine.ReportDocument();
         public static bool LanzarImpresionCrystal = false;
         public static Object ThisMatriz;
 
+
         public Matriz(EXO_UIAPI.EXO_UIAPI gen, Boolean act, Boolean usalicencia, int idAddon)
-            : base(gen, act, usalicencia, idAddon)
+                  : base(gen, act, usalicencia, idAddon)
         {
-            oGlobal = this.objGlobal;
+            Matriz.gen = this.objGlobal;
             TypeMatriz = this.GetType();
 
-            Object ThisMatriz = this;
-
+            Object ThisMatriz = this;             
             if (act)
-            {
-                Utilidades.NuevoReportType("Listados Expert", "Listados Expert", "LISTEXPERT", "MnuXList", true);
+            {                
             }
 
             SAPbobsCOM.Recordset oRec = null;
 
             #region Decimales de la aplicacion
-            oRec = oGlobal.refDi.SQL.sqlComoRsB1("SELECT T0.SumDec, T0.PriceDec, T0.RateDec, T0.QtyDec, T0.PercentDec, T0.MeasureDec, T0.ThousSep, T0.DecSep FROM OADM T0");
+            oRec = Matriz.gen.refDi.SQL.sqlComoRsB1("SELECT T0.SumDec, T0.PriceDec, T0.RateDec, T0.QtyDec, T0.PercentDec, T0.MeasureDec, T0.ThousSep, T0.DecSep FROM OADM T0");
             VarGlobal.SumDec = Convert.ToInt32(oRec.Fields.Item(0).Value);
             VarGlobal.PriceDec = Convert.ToInt32(oRec.Fields.Item(1).Value);
             VarGlobal.RateDec = Convert.ToInt32(oRec.Fields.Item(2).Value);
@@ -47,13 +58,7 @@ namespace Cliente
             System.Runtime.InteropServices.Marshal.ReleaseComObject(oRec);
             oRec = null;
             GC.Collect();
-            GC.WaitForPendingFinalizers();
-
-            #region Cargo menus
-            string mXML = Matriz.oGlobal.funciones.leerEmbebido(TypeMatriz, "xMenuFundiciones.xml");
-            objGlobal.SBOApp.LoadBatchActions(mXML);
-            string res = objGlobal.SBOApp.GetLastBatchResults();
-            #endregion
+            GC.WaitForPendingFinalizers();            
 
         }
 
@@ -65,19 +70,40 @@ namespace Cliente
             try
             {
                 Type Tipo = this.GetType();
-                string fXML = Matriz.oGlobal.funciones.leerEmbebido(Tipo, "xFiltrosFundiciones.xml");
+                string fXML = Utilidades.LeoFichEmbebido("xFiltrosFundiciones_PM.xml");
+                
                 oFilter.LoadFromXML(fXML);
             }
             catch (Exception ex)
             {
-                objGlobal.SBOApp.MessageBox("Error en carga de filtros Fundiciones", 1, "Ok", "", "");
+                Matriz.gen.SBOApp.MessageBox("Error en carga de filtros Fundiciones PM", 1, "Ok", "", "");
                 oFilter = null;
             }
             #endregion
             return oFilter;
         }
 
-        public  bool SBOApp_ItemEvent(ref ItemEvent infoEvento)
+        public override System.Xml.XmlDocument menus()
+        {
+
+            System.Xml.XmlDocument menu = new System.Xml.XmlDocument();
+            string mXML = "";
+
+            if (Matriz.gen.SBOApp.ClientType == BoClientType.ct_Desktop)
+            {
+                mXML = Utilidades.LeoFichEmbebido("xMenuFundiciones_PM.xml");
+
+                //mXML = Matriz.gen.funciones.leerEmbebido(this.GetType(), "xMenuFundiciones_PM.xml");                
+                menu.LoadXml(mXML);
+                return menu;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        public override bool SBOApp_ItemEvent(ItemEvent infoEvento)
         {
             bool lRetorno = true;
 
@@ -86,14 +112,29 @@ namespace Cliente
             {
                 EXO_CalculoPrecioMedio fEXOCPM = new EXO_CalculoPrecioMedio();
                 lRetorno = fEXOCPM.ItemEvent(infoEvento);
-                fEXOCPM = null;
+                fEXOCPM = null;                
+            } 
+
+
+            if (infoEvento.FormTypeEx == "DETAPREC")
+            {
+                EXO_DetaPrecMed fDetaPrec = new EXO_DetaPrecMed();
+                lRetorno = fDetaPrec.ItemEvent(infoEvento);
+                fDetaPrec = null;
+            }
+
+            if (infoEvento.FormTypeEx == "VENREGPM")
+            {
+                EXO_VENREG fVenReg = new EXO_VENREG();
+                lRetorno = fVenReg.ItemEvent(infoEvento);
+                fVenReg = null;
             }
 
 
             return lRetorno;
         }
 
-        public  bool SBOApp_MenuEvent(ref MenuEvent infoMenuEvent)
+        public override bool SBOApp_MenuEvent(MenuEvent infoMenuEvent)
         {
             bool lRetorno = true;
 
@@ -114,16 +155,19 @@ namespace Cliente
             return lRetorno;
         }
 
-        public  bool DataEvent(BusinessObjectInfo InfoEvento)
+        public override bool SBOApp_FormDataEvent(BusinessObjectInfo infoDataEvent)
         {
             bool lRetorno = true;
 
-            return lRetorno;
-        }
+            //if (infoDataEvent.FormTypeEx == "133")
+            //{
+            //    EXO_133 f133;
+            //    f133 = new EXO_133();
+            //    lRetorno = f133.DataEvent(infoDataEvent);
+            //    f133 = null;
+            //}
 
-        public override XmlDocument menus()
-        {
-            throw new NotImplementedException();
+            return lRetorno;
         }
     }
 }

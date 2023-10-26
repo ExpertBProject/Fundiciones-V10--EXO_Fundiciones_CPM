@@ -1,17 +1,20 @@
-﻿
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Xml;
 using System.Linq;
 using System.Text;
 using System.Drawing;
+using System.Threading.Tasks;
 using SAPbobsCOM;
 using SAPbouiCOM;
+
 
 namespace Cliente
 {
     public class EXO_CalculoPrecioMedio
     {
-        //static bool lLanzadoYo = false;atriz.oGlobal.conexionSAP.SBOApp.
+        public enum Estado { ParaConsulta, ParaActualizar }
+
 
         public EXO_CalculoPrecioMedio()
         { }
@@ -19,294 +22,338 @@ namespace Cliente
         public EXO_CalculoPrecioMedio(bool lCreacion)
         {
             SAPbouiCOM.Form oForm = null;
-            SAPbouiCOM.FormCreationParams oParametrosCreacion = (SAPbouiCOM.FormCreationParams)(Matriz.oGlobal.SBOApp.CreateObject(SAPbouiCOM.BoCreatableObjectType.cot_FormCreationParams));
+            SAPbouiCOM.FormCreationParams oParametrosCreacion = (SAPbouiCOM.FormCreationParams)(Matriz.gen.SBOApp.CreateObject(SAPbouiCOM.BoCreatableObjectType.cot_FormCreationParams));
 
             try
             {
-                Type Tipo = this.GetType();
-                string strXML = Utilidades.LeoQueryFich("Formularios.EXO_CalculoPrecioMedio.srf", Tipo);
+                string strXML = Utilidades.LeoFichEmbebido("Formularios.EXO_CalculoPrecioMedio.srf");
                 oParametrosCreacion.XmlData = strXML;
                 oParametrosCreacion.UniqueID = "";
-                oParametrosCreacion.BorderStyle = BoFormBorderStyle.fbs_Fixed;
+                oForm = Matriz.gen.SBOApp.Forms.AddEx(oParametrosCreacion);
 
-                oForm = Matriz.oGlobal.SBOApp.Forms.AddEx(oParametrosCreacion);
+                #region Lleno combo de grupos
+                SAPbouiCOM.ValidValues oValores = ((SAPbouiCOM.ComboBox)oForm.Items.Item("cmbGrupo").Specific).ValidValues;
+                Matriz.gen.funcionesUI.cargaCombo(oValores, sqlGrupos());
+                ((SAPbouiCOM.ComboBox)oForm.Items.Item("cmbGrupo").Specific).ExpandType = BoExpandType.et_DescriptionOnly;
+                #endregion
+
+
+                ((SAPbouiCOM.OptionBtn)oForm.Items.Item("opFecS").Specific).GroupWith("opFecC");
+                ((SAPbouiCOM.OptionBtn)oForm.Items.Item("opFecC").Specific).ValOff = "S";
+                ((SAPbouiCOM.OptionBtn)oForm.Items.Item("opFecC").Specific).ValOn = "C";
+                ((SAPbouiCOM.OptionBtn)oForm.Items.Item("opFecS").Specific).ValOff = "C";
+                ((SAPbouiCOM.OptionBtn)oForm.Items.Item("opFecS").Specific).ValOn = "S";
+
+
+                EstadoObjeto(ref oForm, Estado.ParaConsulta);
+                Limpiar(ref oForm);
+
                 oForm.Visible = true;
+
+                //oForm.ActiveItem = "TXTFD"
+                if (Matriz.gen.refDi.OGEN.valorVariable("EXO_LISTAPRECIOS") == "")
+                {
+                    Matriz.gen.SBOApp.MessageBox("La variable EXO_LISTAPRECIOS esta sin definir", 1, "Ok", "", "");
+                    oForm.Items.Item("btnCons").SetAutoManagedAttribute(BoAutoManagedAttr.ama_Editable, -1, BoModeVisualBehavior.mvb_False);
+                    oForm.Items.Item("bt_GLP").SetAutoManagedAttribute(BoAutoManagedAttr.ama_Editable, -1, BoModeVisualBehavior.mvb_False);
+                }
+
+                Utilidades.DeshabilitoMenus(ref oForm);
+
+
+                oForm.ActiveItem = "TXTFD";
             }
             catch (Exception ex)
             {
-                Matriz.oGlobal.SBOApp.MessageBox(ex.Message, 1, "Ok", "", "");
-            }            
+                Matriz.gen.SBOApp.MessageBox(ex.Message, 1, "Ok", "", "");
+            }
         }
 
         public bool ItemEvent(ItemEvent infoEvento)
         {
-            SAPbouiCOM.Form oForm = Matriz.oGlobal.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
-
             switch (infoEvento.EventType)
             {
-
-                // Ojo - Funciona sólo si lo lanza SAP, NO si lo cargo yo con la instanciacion
-                // case BoEventTypes.et_FORM_VISIBLE:
-                //    {
-                //        if (!lLanzadoYo && !infoEvento.BeforeAction && infoEvento.ActionSuccess && infoEvento.InnerEvent)
-                //        {
-                //            if (oForm.Visible)
-                //            {
-                //                Inicializo(ref oForm);
-                //            }
-                //            return true;
-                //        }
-                //    }
-                //    break;
-
-                case BoEventTypes.et_MATRIX_LOAD:
-                    #region Pinto los datos de la matriz
-                    if (!infoEvento.BeforeAction && infoEvento.ActionSuccess && infoEvento.ItemUID == "matAmi")
+                case BoEventTypes.et_DOUBLE_CLICK:
+                    if (infoEvento.ItemUID == "GrdAlma" && !infoEvento.BeforeAction )
                     {
-                        //PintoMatrizAmigos(ref oForm);
+                        SAPbouiCOM.Form oForm = Matriz.gen.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+                        RellenoAlmacenes(ref oForm, true);
                     }
+                    break;
 
-                    if (!infoEvento.BeforeAction && infoEvento.ActionSuccess && infoEvento.ItemUID == "matEqui")
+                case BoEventTypes.et_FORM_RESIZE:
+                    if (!infoEvento.BeforeAction)
                     {
-                        //PintoMatrizEquipos(ref oForm);
-                    }
+                        #region Cambio el tamaño
+                        SAPbouiCOM.Form oForm = Matriz.gen.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+                        if (oForm.Visible)
+                        {
+                            oForm.Items.Item("grdCli").Top = oForm.Items.Item("cmbGrupo").Top + 100;
+                            oForm.Items.Item("grdCli").Height = oForm.Items.Item("bt_GLP").Top - oForm.Items.Item("grdCli").Top - 15;
 
-                    if (!infoEvento.BeforeAction && infoEvento.ActionSuccess && infoEvento.ItemUID == "matExclu")
+                            oForm.Items.Item("GrdAlma").Top = oForm.Items.Item("TXTFH").Top;
+                            oForm.Items.Item("GrdAlma").Height = oForm.Items.Item("grdCli").Top - oForm.Items.Item("TXTFH").Top - 10;
+
+                            //
+                            if (((SAPbouiCOM.Grid)oForm.Items.Item("GrdAlma").Specific).Columns.Count > 0)
+                            {
+                                ((SAPbouiCOM.Grid)oForm.Items.Item("GrdAlma").Specific).Columns.Item("x").Width = 15;
+                            }
+
+                            if (((SAPbouiCOM.Grid)oForm.Items.Item("grdCli").Specific).Columns.Count > 0)
+                            {
+                                ((SAPbouiCOM.Grid)oForm.Items.Item("grdCli").Specific).Columns.Item("x").Width = 15;
+                            }
+
+                        }
+                        #endregion
+                    }
+                    break;
+
+                case BoEventTypes.et_MATRIX_LINK_PRESSED:
+                    if (infoEvento.ItemUID == "grdCli" && infoEvento.ColUID == "x" && infoEvento.BeforeAction)
                     {
-                        //PintoMatrizExcluidos(ref oForm); 
-                    }
+                        #region Flecha del detalle de precio
+                        SAPbouiCOM.Form oForm = Matriz.gen.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+                        SAPbouiCOM.Grid oGrid = oForm.Items.Item("grdCli").Specific;
 
-                    if (!infoEvento.BeforeAction && infoEvento.ActionSuccess && infoEvento.ItemUID == "GrdTodos")
+                        string cArt = oGrid.DataTable.GetValue("Articulo", oGrid.GetDataTableRowIndex(infoEvento.Row));
+                        string cNomArt = oGrid.DataTable.GetValue("Descripcion", oGrid.GetDataTableRowIndex(infoEvento.Row));
+
+                        string cDesdeFecha = oForm.DataSources.UserDataSources.Item("dsFD").ValueEx;
+                        if (cDesdeFecha == "") cDesdeFecha = "20000101";
+
+                        string cHastaFecha = oForm.DataSources.UserDataSources.Item("dsFH").ValueEx;
+                        if (cHastaFecha == "") cHastaFecha = "20490101";
+
+                        //Almacenes
+                        string cListaAlmacenes = DoyListaAlmacenes(ref oForm);
+                        string cTipoCalculo = (((SAPbouiCOM.OptionBtn)oForm.Items.Item("opFecS").Specific).Selected ? "S" : "C");
+
+                        //
+                        string cTitulo = "Detalle Precio Medio " + cArt + " " + cNomArt;
+                        EXO_DetaPrecMed fDetaPrec = new EXO_DetaPrecMed(cArt, cDesdeFecha, cHastaFecha, cListaAlmacenes, cTipoCalculo, cTitulo);
+                        fDetaPrec = null;
+                        #endregion
+
+                        return false;
+                    }
+                    break;
+
+                case BoEventTypes.et_ITEM_PRESSED:
+                    #region Salgo
+                    if (infoEvento.ItemUID == "btnSalir" && !infoEvento.BeforeAction)
                     {
-                        //PintoMatrizTodas(ref oForm);
-                    }
+                        SAPbouiCOM.Form oForm = Matriz.gen.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
 
+                        oForm.Close();
+                    }
                     #endregion
 
-                    break;
-                case BoEventTypes.et_ITEM_PRESSED:
-
-                    #region Actualizar Grid
 
                     if (infoEvento.ItemUID == "bt_GLP" && !infoEvento.BeforeAction)
                     {
-                        try
+                        SAPbouiCOM.Form oForm = Matriz.gen.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+                        SAPbouiCOM.Grid oGrid = oForm.Items.Item("grdCli").Specific;
+                        SAPbobsCOM.Recordset oRec = (SAPbobsCOM.Recordset)Matriz.gen.compañia.GetBusinessObject(BoObjectTypes.BoRecordset);
+
+                        if (!oGrid.DataTable.IsEmpty)
                         {
-                            SAPbouiCOM.Grid oGrid = oForm.Items.Item("grdCli").Specific;
-                            SAPbobsCOM.Recordset oRec = (SAPbobsCOM.Recordset)Matriz.oGlobal.compañia.GetBusinessObject(BoObjectTypes.BoRecordset);
-                            string sValorItem = "";
-                            string sValorPrice = "";
-                            string gListaPrecios = "";
+                            #region Recorro el grid
+                            List<Matriz.Mensajes> ListaMensajes = new List<Matriz.Mensajes>();
+                            string cListaPrec = Matriz.gen.refDi.OGEN.valorVariable("EXO_LISTAPRECIOS");
+                            int nMulti = Convert.ToInt32("1" + "".PadRight(VarGlobal.PriceDec, '0'));
 
-                            string sql = "SELECT U_EXO_INFV FROM [@EXO_OGEN1] WHERE U_EXO_NOMV = 'EXO_LISTAPRECIOS'";
-                            oRec.DoQuery(sql);
+                            System.Globalization.NumberFormatInfo nfi = new System.Globalization.NumberFormatInfo();
+                            nfi.NumberDecimalSeparator = ".";
+                            nfi.NumberGroupSeparator = "";
+                            nfi.NumberDecimalDigits = 6;
 
-                            if (oRec.RecordCount > 0)
+                            string cMenError = "";
+                            string sXmlTabla = oGrid.DataTable.SerializeAsXML(BoDataTableXmlSelect.dxs_All);
+                            System.Xml.XmlDocument oXmlGridTabla = new System.Xml.XmlDocument();
+                            oXmlGridTabla.LoadXml(sXmlTabla);
+
+                            string sXPath = "/DataTable/Rows/Row/Cells";
+                            XmlNodeList oXmlNodesGridTabla = oXmlGridTabla.SelectNodes(sXPath);
+
+
+                            foreach (XmlNode oNodo in oXmlNodesGridTabla)
                             {
-                                gListaPrecios = oRec.Fields.Item("U_EXO_INFV").Value;
-                            }
-                            else
-                            {
-                                Matriz.oGlobal.SBOApp.MessageBox("La variable global EXO_LISAPRECIOS esta sin definir", 1, "Ok", "", "");
-                            }
+                                string cValorXML = oNodo.SelectNodes("Cell[./ColumnUid='Precio Calculado Expert']").Item(0).SelectSingleNode("Value").InnerText;
+                                string cArticulo = oNodo.SelectNodes("Cell[./ColumnUid='Articulo']").Item(0).SelectSingleNode("Value").InnerText;
 
-                            //string gListaPrecios = Matriz.oGlobal.conexionSAP.refCompañia.OGEN.valorVariable("EXO_LISTAPRECIOS");
+                                int nValor = (int)Math.Truncate(Convert.ToDouble(cValorXML, nfi) * nMulti);
+                                string cPrecAct = nValor.ToString() + ".0/" + nMulti.ToString() + ".0";
 
-                            for (int i = 0; i < oGrid.Rows.Count; i++)
-                            {
-                                try
+
+                                string sqlUPD = "UPDATE ITM1 SET Price = " + cPrecAct + " WHERE PriceList = '" + cListaPrec + "' AND ItemCode = '" + cArticulo + "'";
+
+                                Utilidades.EjecutoSQL(sqlUPD, ref cMenError);
+                                if (cMenError != "")
                                 {
-                                    sValorItem = Convert.ToString(oGrid.DataTable.GetValue("Artículo", i));
-                                    sValorPrice = Convert.ToString(oGrid.DataTable.GetValue("Precio Calculado Expert", i));
-                                    if (sValorPrice != "0")
-                                    { 
-                                        string sqlUPD = "UPDATE ITM1 SET Price = " + sValorPrice.Replace(",", ".") + " WHERE PriceList = '" + gListaPrecios + "' AND ItemCode = '" + sValorItem + "'";
-                                        oRec.DoQuery(sqlUPD);
-                                    }
+                                    #region Por si hay error
+                                    Matriz.Mensajes AuxMensa;
+                                    AuxMensa.Clave = "";
+                                    AuxMensa.Mensaje = "ERROR. No se puedo actualizar articulo " + cArticulo;
+                                    AuxMensa.Objeto = "";
+                                    AuxMensa.TipoObjeto = Matriz.ClasesObjetos.Caracter;
+                                    ListaMensajes.Add(AuxMensa);
+
+                                    AuxMensa.Clave = "";
+                                    AuxMensa.Mensaje = cMenError;
+                                    AuxMensa.Objeto = "";
+                                    AuxMensa.TipoObjeto = Matriz.ClasesObjetos.Caracter;
+                                    ListaMensajes.Add(AuxMensa);
+
+                                    AuxMensa.Clave = "";
+                                    AuxMensa.Mensaje = "";
+                                    AuxMensa.Objeto = "";
+                                    AuxMensa.TipoObjeto = Matriz.ClasesObjetos.Caracter;
+                                    ListaMensajes.Add(AuxMensa);
+                                    #endregion
                                 }
-                                catch (Exception ex)
-                                {
-                                    Matriz.oGlobal.SBOApp.MessageBox("Error al actualizar el precio del artículo, " + sValorItem + " en la lista de precios, " + gListaPrecios + ". ERROR:" + ex.Message, 1, "Ok", "", "");
-                                }
+
+                                Matriz.gen.SBOApp.SetStatusBarMessage("Articulo " + cArticulo + " actualizado", BoMessageTime.bmt_Short, false);
                             }
-                            Matriz.oGlobal.SBOApp.MessageBox("La Lista de precios se actualizo correctamente.", 1, "Ok", "", "");
-                        }
-                        catch (Exception ex)
-                        {
-                            Matriz.oGlobal.SBOApp.MessageBox(ex.Message, 1, "Ok", "", "");
+
+                            Matriz.gen.SBOApp.SetStatusBarMessage("Proceso terminado", BoMessageTime.bmt_Short, false);
+
+                            if (ListaMensajes.Count > 0)
+                            {
+                                EXO_VENREG fVenReg = new EXO_VENREG(ListaMensajes, "Errores actualizacion lista precios margen");
+                                fVenReg = null;
+                            }
+
+
+                            Limpiar(ref oForm);
+                            EstadoObjeto(ref oForm, Estado.ParaConsulta);
+                            ((SAPbouiCOM.Button)oForm.Items.Item("btnCons").Specific).Caption = "Consultar";
+                            #endregion
                         }
                     }
 
-                    if (infoEvento.ItemUID == "bt_VM" && !infoEvento.BeforeAction)
+
+                    if (infoEvento.ItemUID == "btnCons" && infoEvento.BeforeAction)
                     {
-                        try
+                        SAPbouiCOM.Form oForm = Matriz.gen.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+                        if (((SAPbouiCOM.Button)oForm.Items.Item("btnCons").Specific).Caption == "Consultar")
                         {
-                            SAPbouiCOM.Grid oGrid = oForm.Items.Item("grdCli").Specific;
-                            SAPbouiCOM.ComboBox oComboBox;
-
-                            if (oGrid.Rows.SelectedRows.Count != 0)
+                            #region Consultar
+                            try
                             {
+                                #region Recojo los filtros
+                                string cGrupoArticulo = "";
+                                try
+                                {
+                                    cGrupoArticulo = ((SAPbouiCOM.ComboBox)oForm.Items.Item("cmbGrupo").Specific).Selected.Value;
+                                }
+                                catch
+                                { }
 
-                                //oComboBox = (SAPbouiCOM.ComboBox)oForm.Items.Item("CmbVal").Specific;
-                                //string CmbVal = Convert.ToString(oComboBox.Selected.Value);
-                                string CmbVal = "Ambas";
-
-                                SAPbouiCOM.Grid oGrid2 = oForm.Items.Item("grdCli2").Specific;
-                                oGrid2.DataTable = null;
-
-                                int rowIndex = oGrid.Rows.SelectedRows.Item(0, BoOrderType.ot_RowOrder);
-                                string sValorItem = Convert.ToString(oGrid.DataTable.GetValue("Artículo", rowIndex));
 
                                 string cDesdeFecha = oForm.DataSources.UserDataSources.Item("dsFD").ValueEx;
-                                if (cDesdeFecha == "" || cDesdeFecha == null) cDesdeFecha = "20100101";
+                                if (cDesdeFecha == "") cDesdeFecha = "20000101";
 
                                 string cHastaFecha = oForm.DataSources.UserDataSources.Item("dsFH").ValueEx;
-                                if (cHastaFecha == "" || cHastaFecha == null) cHastaFecha = "20900101";
+                                if (cHastaFecha == "") cHastaFecha = "20490101";
 
-                                string sql = "SELECT T1.ItemCode AS 'Artículo',T0.ItemName AS 'Nombre',T1.BASE_REF as 'Nº Documento',T1.DocLineNum  AS 'Linea',T1.DocDate as 'Fecha',T1.JrnlMemo AS 'Descripción',T1.InQty as 'Cantidad recibida',T1.OutQty  as 'Cantidad emitida',T1.Price as 'Precio'";
-                                sql += " FROM OITM T0";
-                                sql += " INNER JOIN OINM T1 ON T0.Itemcode = T1. Itemcode";
-                                sql += " INNER JOIN OWHS T2 ON T2.WhsCode = T1.Warehouse";
-                                sql += " WHERE T0.ItemCode = '" + sValorItem + "'";
-                                sql += " AND T1.DocDate BETWEEN '" + cDesdeFecha + "' AND '" + cHastaFecha + "'";
-                                if (CmbVal == "Ambas")
-                                {
-                                    sql += " AND T1.Price > 0 AND (T1.InQty > 0 or T1.OutQty > 0)";
-                                }
-                                if (CmbVal == "Entrada")
-                                {
-                                    sql += " AND T1.Price > 0 AND (T1.InQty > 0)";
-                                }
-                                if (CmbVal == "Salida")
-                                {
-                                    sql += " AND T1.Price > 0 AND (T1.OutQty > 0)";
-                                }
-                                sql += " AND(ISNULL(T2.U_EXO_ACPM, 'NO') = 'SI')";
-                                sql += " ORDER BY T0.Itemcode, T1.DocDate";
+                                string cDesdeArt = oForm.DataSources.UserDataSources.Item("dsArt").Value;
+                                string cHastaArt = oForm.DataSources.UserDataSources.Item("dsArt2").Value;
+                                #endregion
 
-                                SAPbobsCOM.Recordset oRecAmi2 = Matriz.oGlobal.refDi.SQL.sqlComoRsB1(sql);
-                                SAPbouiCOM.DataTable oTabla2 = oForm.DataSources.DataTables.Item("TablaMov");
-
-                                if (oRecAmi2.RecordCount > 0)
+                                //Almacenes
+                                string cListaAlmacenes = DoyListaAlmacenes(ref oForm);
+                                if (cListaAlmacenes == "")
                                 {
-                                    oTabla2.ExecuteQuery(sql);
-                                    oGrid2.DataTable = oTabla2;
+                                    Matriz.gen.SBOApp.SetStatusBarMessage("Ha de seleccionar algun almacen", BoMessageTime.bmt_Short, true);
+                                    return false;
+                                }
+
+
+                                SAPbouiCOM.Grid oGrid = (SAPbouiCOM.Grid)oForm.Items.Item("grdCli").Specific;
+
+                                string cTipoCalculo = (((SAPbouiCOM.OptionBtn)oForm.Items.Item("opFecS").Specific).Selected ? "S" : "C");
+                                string sql = Especifico.sqlQueryCalculo(cGrupoArticulo, cDesdeArt, cHastaArt, cDesdeFecha, cHastaFecha, cListaAlmacenes, false, cTipoCalculo);
+                                Matriz.gen.SBOApp.SetStatusBarMessage("Calculando precios ... ", BoMessageTime.bmt_Short, false);
+                                oForm.DataSources.DataTables.Item("TablaPre").ExecuteQuery(sql);
+                                if (oForm.DataSources.DataTables.Item("TablaPre").IsEmpty)
+                                {
+                                    Matriz.gen.SBOApp.MessageBox("No hay resgitros", 1, "Ok", "", "");
                                 }
                                 else
                                 {
-                                    Matriz.oGlobal.SBOApp.MessageBox("No hay resgistros", 1, "Ok", "", "");
+                                    ((SAPbouiCOM.EditTextColumn)oGrid.Columns.Item("Articulo")).LinkedObjectType = "4";
+                                    ((SAPbouiCOM.EditTextColumn)oGrid.Columns.Item("x")).LinkedObjectType = "17";
+
+                                    oGrid.AutoResizeColumns();
+                                    oGrid.Columns.Item("x").Width = 15;
+
+                                    for (int j = 0; j < oGrid.Columns.Count; j++)
+                                    {
+                                        oGrid.Columns.Item(j).TitleObject.Sortable = true;
+                                    }
+
+                                    Matriz.gen.SBOApp.SetStatusBarMessage("Calculos realizados", BoMessageTime.bmt_Short, false);
                                 }
+
                             }
-                            else
+                            catch (Exception ex)
                             {
-                                Matriz.oGlobal.SBOApp.MessageBox("No hay ningún registro seleccionado ", 1, "Ok", "", "");
+                                Matriz.gen.SBOApp.MessageBox(ex.Message, 1, "Ok", "", "");
                             }
+                            #endregion
+
+                            EstadoObjeto(ref oForm, Estado.ParaActualizar);
+
+                            ((SAPbouiCOM.Button)oForm.Items.Item("btnCons").Specific).Caption = "Limpiar";
                         }
-                        catch (Exception ex)
+                        else
                         {
-                            Matriz.oGlobal.SBOApp.MessageBox(ex.Message, 1, "Ok", "", "");
+                            EstadoObjeto(ref oForm, Estado.ParaConsulta);
+                            Limpiar(ref oForm);
+                            ((SAPbouiCOM.Button)oForm.Items.Item("btnCons").Specific).Caption = "Consultar";
+
+
+                            oForm.ActiveItem = "TXTFD";
                         }
                     }
-
-
-                    if (infoEvento.ItemUID == "bt_act" && infoEvento.BeforeAction)
-                    {
-                        try
-                        {
-                            string cGrupoArticulo = oForm.DataSources.UserDataSources.Item("dsGru2").Value;
-                            SAPbouiCOM.ComboBox oComboBox;
-
-                            //oComboBox = (SAPbouiCOM.ComboBox)oForm.Items.Item("CmbVal").Specific;
-                            //string CmbVal = Convert.ToString(oComboBox.Selected.Value);
-
-                            string CmbVal = "Ambas";
-                            string cDesdeFecha = oForm.DataSources.UserDataSources.Item("dsFD").ValueEx;
-                            if (cDesdeFecha == "" || cDesdeFecha == null) cDesdeFecha = "20100101";
-
-                            string cHastaFecha = oForm.DataSources.UserDataSources.Item("dsFH").ValueEx;
-                            if (cHastaFecha == "" || cHastaFecha == null) cHastaFecha = "20900101";
-
-                            SAPbouiCOM.Grid oGrid = oForm.Items.Item("grdCli").Specific;
-                            SAPbouiCOM.Grid oGrid2 = oForm.Items.Item("grdCli2").Specific;
-                            oGrid2.DataTable = null;
-                            
-                            string sql = "SELECT T0.Itemcode AS 'Artículo', T0.ItemName AS 'Descripción',";
-                            sql += " cast(ISNULL(dbo.EXO_CantidadFinal(T0.itemcode,'" + CmbVal + "', convert(DATETIME, '##DESDEFECHA', 112), convert(DATETIME, '##HASTAFECHA', 112)),0) as numeric(19, 2)) as 'Cantidad tratada',";
-                            sql += " ISNULL(dbo.EXO_PrecioCalculadoExpert(T0.itemcode,'" + CmbVal + "', convert(DATETIME, '##DESDEFECHA', 112), convert(DATETIME, '##HASTAFECHA', 112)),0) as 'Precio Calculado Expert',";
-                            sql += " T0.LstEvlPric as 'Precio SAP',";
-                            sql += " ISNULL(dbo.EXO_PrecioCalculadoExpert(T0.itemcode,'" + CmbVal + "', convert(DATETIME, '##DESDEFECHA', 112), convert(DATETIME, '##HASTAFECHA', 112))*dbo.EXO_CantidadFinal(T0.itemcode,'" + CmbVal + "', convert(DATETIME, '##DESDEFECHA', 112), convert(DATETIME, '##HASTAFECHA', 112)),0) as 'Importe Calculado Expert',";
-                            sql += " ISNULL(T0.LstEvlPric*dbo.EXO_CantidadFinal(T0.itemcode,'" + CmbVal + "', convert(DATETIME, '##DESDEFECHA', 112), convert(DATETIME, '##HASTAFECHA', 112)),0) as 'Importe SAP',";
-                            sql += " (ISNULL(dbo.EXO_PrecioCalculadoExpert(T0.itemcode,'" + CmbVal + "',convert(DATETIME, '##DESDEFECHA', 112), convert(DATETIME, '##HASTAFECHA', 112))*dbo.EXO_CantidadFinal(T0.itemcode,'" + CmbVal + "', convert(DATETIME, '##DESDEFECHA', 112), convert(DATETIME, '##HASTAFECHA', 112)),0) - (ISNULL(T0.LstEvlPric*dbo.EXO_CantidadFinal(T0.itemcode,'" + CmbVal + "', convert(DATETIME, '##DESDEFECHA', 112), convert(DATETIME, '##HASTAFECHA', 112)),0))) as 'diferencia'";
-                            sql += " FROM OITM T0";
-                            sql += " WHERE T0.ItemCode BETWEEN '" + oForm.DataSources.UserDataSources.Item("dsArt").Value + "' AND '" + oForm.DataSources.UserDataSources.Item("dsArt2").Value + "'";
-                                                        
-                            if (cGrupoArticulo != null && cGrupoArticulo != "")
-                            {
-                                sql += " AND T0.ItmsGrpCod ='" + cGrupoArticulo + "'";
-                            }
-
-                            sql = sql.Replace("##DESDEFECHA", cDesdeFecha).Replace("##HASTAFECHA", cHastaFecha);
-
-                            SAPbobsCOM.Recordset oRecAmi = Matriz.oGlobal.refDi.SQL.sqlComoRsB1(sql);
-                            SAPbouiCOM.DataTable oTabla = oForm.DataSources.DataTables.Item("TablaPre");
-                            
-                            if (oRecAmi.RecordCount > 0)
-                            {
-                                Matriz.oGlobal.SBOApp.SetStatusBarMessage("Calculando precios ... ", BoMessageTime.bmt_Short, false);
-                                oTabla.ExecuteQuery(sql);
-                                oGrid.DataTable = oTabla;
-                            }
-                            else
-                            {
-                                Matriz.oGlobal.SBOApp.MessageBox("No hay resgistros", 1, "Ok", "", "");
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Matriz.oGlobal.SBOApp.MessageBox(ex.Message, 1, "Ok", "", "");
-                        }
-                    }
-                    #endregion
 
                     break;
 
                 case BoEventTypes.et_CHOOSE_FROM_LIST:
                     if (!infoEvento.BeforeAction) // Antes de BeforeAction
                     {
-                        SAPbouiCOM.IChooseFromListEvent cflevent = (SAPbouiCOM.IChooseFromListEvent)infoEvento;
                         try
                         {
+                            SAPbouiCOM.Form oForm = Matriz.gen.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
+                            SAPbouiCOM.IChooseFromListEvent oCFLEvento = (SAPbouiCOM.IChooseFromListEvent)infoEvento;
                             switch (infoEvento.ItemUID)
                             {
                                 #region Articulos
                                 case "txtArt":
-                                    oForm.DataSources.UserDataSources.Item("dsArt").Value = Convert.ToString(cflevent.SelectedObjects.GetValue("ItemCode", 0));
+                                    oForm.DataSources.UserDataSources.Item("dsArt").Value = Convert.ToString(oCFLEvento.SelectedObjects.GetValue("ItemCode", 0));
                                     break;
 
                                 case "txtArt2":
-                                    oForm.DataSources.UserDataSources.Item("dsArt2").Value = Convert.ToString(cflevent.SelectedObjects.GetValue("ItemCode", 0));
+                                    oForm.DataSources.UserDataSources.Item("dsArt2").Value = Convert.ToString(oCFLEvento.SelectedObjects.GetValue("ItemCode", 0));
                                     break;
-
-                                case "TXTGA":
-                                    oForm.DataSources.UserDataSources.Item("dsGru").Value = Convert.ToString(cflevent.SelectedObjects.GetValue("ItmsGrpNam", 0));
-                                    oForm.DataSources.UserDataSources.Item("dsGru2").Value = Convert.ToString(cflevent.SelectedObjects.GetValue("ItmsGrpCod", 0));
-                                    break;
-                                #endregion
+                                    #endregion
                             }
                         }
                         catch (Exception ex)
                         {
-                            Matriz.oGlobal.SBOApp.MessageBox(ex.Message, 1, "Ok", "", "");
+                            Matriz.gen.SBOApp.MessageBox(ex.Message, 1, "Ok", "", "");
                         }
-                }
-                break;
+                    }
+                    break;
             }
             return true;
         }
 
         public void MenuEvent(MenuEvent infoEvento)
         {
-            //SAPbouiCOM.Form oForm = Matriz.oGlobal.SBOApp.Forms.ActiveForm;
+            //SAPbouiCOM.Form oForm = Matriz.oGlobal.conexionSAP.SBOApp.Forms.ActiveForm;
 
             //if (infoEvento.MenuUID == "1282")
             //{
@@ -327,7 +374,7 @@ namespace Cliente
 
         public bool DataEvent(BusinessObjectInfo args)
         {
-            SAPbouiCOM.Form oForm = Matriz.oGlobal.SBOApp.Forms.Item(args.FormUID);
+            SAPbouiCOM.Form oForm = Matriz.gen.SBOApp.Forms.Item(args.FormUID);
 
             switch (args.EventType)
             {
@@ -344,9 +391,11 @@ namespace Cliente
                 case BoEventTypes.et_FORM_DATA_ADD:
                 case BoEventTypes.et_FORM_DATA_UPDATE:
                     {
-                        
+
                     }
                     break;
+
+
             }
 
             EXO_CleanCOM.CLiberaCOM.Form(oForm);
@@ -367,14 +416,13 @@ namespace Cliente
             //    string sql = "SELECT T0.Code AS 'Equipo',  T0.U_EXO_ItemCode AS 'Referencia', T1.ItemName AS 'DescArt' ";
             //    sql += " FROM [@EXO_CODFABRI] T0 INNER JOIN OITM T1 ON T0.U_EXO_ItemCode = T1.ItemCode ";
             //    sql += " WHERE T0.Code = '" + cEquipo + "'";
-            //    SAPbobsCOM.Recordset oRecAmi = Matriz.oGlobal.refDi.SQL.sqlComoRsB1(sql);
+            //    SAPbobsCOM.Recordset oRecAmi = Matriz.oGlobal.SQL.sqlComoRsB1(sql);
 
             //    ((SAPbouiCOM.EditText)oMatLin.Columns.Item("Col_1").Cells.Item(i).Specific).Value = oRecAmi.Fields.Item("Referencia").Value;
             //    ((SAPbouiCOM.EditText)oMatLin.Columns.Item("Col_2").Cells.Item(i).Specific).Value = oRecAmi.Fields.Item("DescArt").Value;
             //}
 
         }
-
 
         private void ModificoCFL(ref SAPbouiCOM.Form oForm)
         {
@@ -398,9 +446,9 @@ namespace Cliente
             SAPbouiCOM.ChooseFromList oCFL2;
             SAPbouiCOM.Conditions oCons2;
             SAPbouiCOM.Condition oCon2;
-            
 
-           
+
+
             oCFL2 = oForm.ChooseFromLists.Item("CFLArt2");
             oCFL2.SetConditions(null);
             oCons2 = oCFL2.GetConditions();
@@ -412,6 +460,109 @@ namespace Cliente
 
             #endregion
 
+
+        }
+
+
+        private string DoyListaAlmacenes(ref SAPbouiCOM.Form oForm)
+        {
+            #region Almacenes
+            string cListaAlmacenes = "";
+
+            string sXmlTabla = oForm.DataSources.DataTables.Item("TablaAlma").SerializeAsXML(BoDataTableXmlSelect.dxs_All);
+            System.Xml.XmlDocument oXmlGridTabla = new System.Xml.XmlDocument();
+            oXmlGridTabla.LoadXml(sXmlTabla);
+
+            string sXPath = "/DataTable/Rows/Row/Cells/Cell[./ColumnUid='x' and ./Value='Y']";
+            XmlNodeList oXmlNodesGridTabla = oXmlGridTabla.SelectNodes(sXPath);
+            foreach (XmlNode oNodo in oXmlNodesGridTabla)
+            {
+                string cAlmacen = oNodo.ParentNode.SelectNodes("Cell[./ColumnUid='Almacen']").Item(0).SelectSingleNode("Value").InnerText;
+                cListaAlmacenes += (cAlmacen + ",");
+            }
+
+            if (cListaAlmacenes.Length > 0)
+            {
+                cListaAlmacenes = cListaAlmacenes.Substring(0, cListaAlmacenes.Length - 1);
+            }
+            #endregion
+
+            return cListaAlmacenes;
+        }
+
+
+        private void EstadoObjeto(ref SAPbouiCOM.Form oForm, Estado oEstado)
+        {
+            oForm.Items.Item("TXTFD").SetAutoManagedAttribute(BoAutoManagedAttr.ama_Editable, -1, oEstado == Estado.ParaActualizar ? BoModeVisualBehavior.mvb_False : BoModeVisualBehavior.mvb_True);
+            oForm.Items.Item("TXTFH").SetAutoManagedAttribute(BoAutoManagedAttr.ama_Editable, -1, oEstado == Estado.ParaActualizar ? BoModeVisualBehavior.mvb_False : BoModeVisualBehavior.mvb_True);
+            oForm.Items.Item("txtArt").SetAutoManagedAttribute(BoAutoManagedAttr.ama_Editable, -1, oEstado == Estado.ParaActualizar ? BoModeVisualBehavior.mvb_False : BoModeVisualBehavior.mvb_True);
+            oForm.Items.Item("txtArt2").SetAutoManagedAttribute(BoAutoManagedAttr.ama_Editable, -1, oEstado == Estado.ParaActualizar ? BoModeVisualBehavior.mvb_False : BoModeVisualBehavior.mvb_True);
+            oForm.Items.Item("txtArt2").SetAutoManagedAttribute(BoAutoManagedAttr.ama_Editable, -1, oEstado == Estado.ParaActualizar ? BoModeVisualBehavior.mvb_False : BoModeVisualBehavior.mvb_True);
+            oForm.Items.Item("cmbGrupo").SetAutoManagedAttribute(BoAutoManagedAttr.ama_Editable, -1, oEstado == Estado.ParaActualizar ? BoModeVisualBehavior.mvb_False : BoModeVisualBehavior.mvb_True);
+
+            oForm.Items.Item("opFecS").SetAutoManagedAttribute(BoAutoManagedAttr.ama_Editable, -1, oEstado == Estado.ParaActualizar ? BoModeVisualBehavior.mvb_False : BoModeVisualBehavior.mvb_True);
+            oForm.Items.Item("opFecC").SetAutoManagedAttribute(BoAutoManagedAttr.ama_Editable, -1, oEstado == Estado.ParaActualizar ? BoModeVisualBehavior.mvb_False : BoModeVisualBehavior.mvb_True);
+
+
+            oForm.Items.Item("bt_GLP").SetAutoManagedAttribute(BoAutoManagedAttr.ama_Editable, -1, oEstado == Estado.ParaActualizar ? BoModeVisualBehavior.mvb_True : BoModeVisualBehavior.mvb_False);
+
+
+            oForm.Items.Item("GrdAlma").SetAutoManagedAttribute(BoAutoManagedAttr.ama_Editable, -1, oEstado == Estado.ParaActualizar ? BoModeVisualBehavior.mvb_False : BoModeVisualBehavior.mvb_True);
+        }
+
+
+        private void Limpiar(ref SAPbouiCOM.Form oForm)
+        {
+            oForm.DataSources.UserDataSources.Item("dsFD").Value = "";
+            oForm.DataSources.UserDataSources.Item("dsFH").Value = "";
+            oForm.DataSources.UserDataSources.Item("dsArt").Value = "";
+            oForm.DataSources.UserDataSources.Item("dsArt2").Value = "";
+            oForm.DataSources.UserDataSources.Item("dsOpt").Value = "C";
+
+            ((SAPbouiCOM.ComboBox)oForm.Items.Item("cmbGrupo").Specific).Select("-1", BoSearchKey.psk_ByValue);
+
+            ((SAPbouiCOM.Grid)oForm.Items.Item("grdCli").Specific).DataTable.Clear();
+
+            RellenoAlmacenes(ref oForm, false);
+        }
+
+        public void RellenoAlmacenes(ref SAPbouiCOM.Form oForm, bool lMarca)
+        {
+            //Relleno almacenes
+            SAPbouiCOM.DataTable oTabAlma = oForm.DataSources.DataTables.Item("TablaAlma");
+            oTabAlma.ExecuteQuery(sqlAlmacenes(lMarca));
+            if (!oTabAlma.IsEmpty)
+            {
+                SAPbouiCOM.Grid oGrid = (SAPbouiCOM.Grid)oForm.Items.Item("GrdAlma").Specific;
+                oGrid.Columns.Item("x").Type = BoGridColumnType.gct_CheckBox;
+
+                oGrid.Columns.Item("x").Editable = true;
+                oGrid.Columns.Item("x").Width = 15;
+                oGrid.Columns.Item("Almacen").Editable = false;
+                oGrid.Columns.Item("Nombre").Editable = false;
+
+                oGrid.AutoResizeColumns();
+            }
+        }
+
+
+        public string sqlGrupos()
+        {
+            string sql = "(SELECT - 1 AS 'Grupo', 'Ninguno seleccionado') ";
+            sql += " UNION all ";
+            sql += " (SELECT T0.ItmsGrpCod AS 'Grupo', T0.ItmsGrpNam AS 'Nombre' FROM OITB T0 ) ";
+
+            return sql;
+
+        }
+
+
+        public string sqlAlmacenes(bool lMarcados = false)
+        {
+            string sql = "SELECT '##MARCA' AS 'x', T0.WhsCode AS 'Almacen', T0.WhsName AS 'Nombre' from OWHS T0 ORDER BY T0.WhsCode";
+            sql = sql.Replace("##MARCA", lMarcados ? "Y" : "N");
+
+            return sql;
 
         }
     }
