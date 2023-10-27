@@ -74,7 +74,7 @@ namespace Cliente
             switch (infoEvento.EventType)
             {
                 case BoEventTypes.et_DOUBLE_CLICK:
-                    if (infoEvento.ItemUID == "GrdAlma" && !infoEvento.BeforeAction )
+                    if (infoEvento.ItemUID == "GrdAlma" && !infoEvento.BeforeAction)
                     {
                         SAPbouiCOM.Form oForm = Matriz.gen.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
                         RellenoAlmacenes(ref oForm, true);
@@ -141,15 +141,12 @@ namespace Cliente
                     break;
 
                 case BoEventTypes.et_ITEM_PRESSED:
-                    #region Salgo
                     if (infoEvento.ItemUID == "btnSalir" && !infoEvento.BeforeAction)
                     {
                         SAPbouiCOM.Form oForm = Matriz.gen.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
 
                         oForm.Close();
                     }
-                    #endregion
-
 
                     if (infoEvento.ItemUID == "bt_GLP" && !infoEvento.BeforeAction)
                     {
@@ -163,19 +160,21 @@ namespace Cliente
                             List<Matriz.Mensajes> ListaMensajes = new List<Matriz.Mensajes>();
                             string cListaPrec = Matriz.gen.refDi.OGEN.valorVariable("EXO_LISTAPRECIOS");
                             int nMulti = Convert.ToInt32("1" + "".PadRight(VarGlobal.PriceDec, '0'));
+                            string cMenError = "";
 
                             System.Globalization.NumberFormatInfo nfi = new System.Globalization.NumberFormatInfo();
                             nfi.NumberDecimalSeparator = ".";
                             nfi.NumberGroupSeparator = "";
                             nfi.NumberDecimalDigits = 6;
 
-                            string cMenError = "";
-                            string sXmlTabla = oGrid.DataTable.SerializeAsXML(BoDataTableXmlSelect.dxs_All);
+                            #region xml grid
                             System.Xml.XmlDocument oXmlGridTabla = new System.Xml.XmlDocument();
-                            oXmlGridTabla.LoadXml(sXmlTabla);
-
-                            string sXPath = "/DataTable/Rows/Row/Cells";
-                            XmlNodeList oXmlNodesGridTabla = oXmlGridTabla.SelectNodes(sXPath);
+                            {
+                                string sXmlTabla = oGrid.DataTable.SerializeAsXML(BoDataTableXmlSelect.dxs_All);
+                                oXmlGridTabla.LoadXml(sXmlTabla);
+                            }
+                            XmlNodeList oXmlNodesGridTabla = oXmlGridTabla.SelectNodes("/DataTable/Rows/Row/Cells/Cell[./ColumnUid='Bloquear Precio Expert' and ./Value='N']/..");
+                            #endregion
 
 
                             foreach (XmlNode oNodo in oXmlNodesGridTabla)
@@ -225,14 +224,12 @@ namespace Cliente
                                 fVenReg = null;
                             }
 
-
                             Limpiar(ref oForm);
                             EstadoObjeto(ref oForm, Estado.ParaConsulta);
                             ((SAPbouiCOM.Button)oForm.Items.Item("btnCons").Specific).Caption = "Consultar";
                             #endregion
                         }
                     }
-
 
                     if (infoEvento.ItemUID == "btnCons" && infoEvento.BeforeAction)
                     {
@@ -276,9 +273,11 @@ namespace Cliente
                                 string cTipoCalculo = (((SAPbouiCOM.OptionBtn)oForm.Items.Item("opFecS").Specific).Selected ? "S" : "C");
                                 string sql = Especifico.sqlQueryCalculo(cGrupoArticulo, cDesdeArt, cHastaArt, cDesdeFecha, cHastaFecha, cListaAlmacenes, false, cTipoCalculo);
                                 Matriz.gen.SBOApp.SetStatusBarMessage("Calculando precios ... ", BoMessageTime.bmt_Short, false);
+                                oForm.Freeze(true);
                                 oForm.DataSources.DataTables.Item("TablaPre").ExecuteQuery(sql);
                                 if (oForm.DataSources.DataTables.Item("TablaPre").IsEmpty)
                                 {
+                                    oForm.Freeze(false);
                                     Matriz.gen.SBOApp.MessageBox("No hay resgitros", 1, "Ok", "", "");
                                 }
                                 else
@@ -288,11 +287,16 @@ namespace Cliente
 
                                     oGrid.AutoResizeColumns();
                                     oGrid.Columns.Item("x").Width = 15;
+                                    oGrid.Columns.Cast<GridColumn>().ToList().ForEach(c => { c.TitleObject.Sortable = true; });
 
-                                    for (int j = 0; j < oGrid.Columns.Count; j++)
-                                    {
-                                        oGrid.Columns.Item(j).TitleObject.Sortable = true;
-                                    }
+                                    #region columna si/no
+                                    oGrid.Columns.Item("Bloquear Precio Expert").Type = BoGridColumnType.gct_ComboBox;
+                                    ComboBoxColumn oComboCol = (ComboBoxColumn)oGrid.Columns.Item("Bloquear Precio Expert");
+                                    oComboCol.ValidValues.Add("Y", "Si");
+                                    oComboCol.ValidValues.Add("N", "No");
+                                    oComboCol.DisplayType = BoComboDisplayType.cdt_Description;
+                                    oComboCol.ExpandType = BoExpandType.et_DescriptionOnly;
+                                    #endregion
 
                                     Matriz.gen.SBOApp.SetStatusBarMessage("Calculos realizados", BoMessageTime.bmt_Short, false);
                                 }
@@ -307,6 +311,8 @@ namespace Cliente
                             EstadoObjeto(ref oForm, Estado.ParaActualizar);
 
                             ((SAPbouiCOM.Button)oForm.Items.Item("btnCons").Specific).Caption = "Limpiar";
+
+                            oForm.Freeze(false);
                         }
                         else
                         {
@@ -318,7 +324,6 @@ namespace Cliente
                             oForm.ActiveItem = "TXTFD";
                         }
                     }
-
                     break;
 
                 case BoEventTypes.et_CHOOSE_FROM_LIST:

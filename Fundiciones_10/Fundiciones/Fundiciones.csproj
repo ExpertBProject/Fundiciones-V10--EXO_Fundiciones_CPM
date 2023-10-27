@@ -123,12 +123,13 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Ventanas Propias\EXO_DetaPrecMed.cs" />
     <Compile Include="Ventanas Propias\EXO_VentRegistros.cs" />
+    <Compile Include="Ventanas SAP\EXO_157.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Formularios\EXO_CalculoPrecioMedio.srf" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="Ventanas SAP\" />
+    <EmbeddedResource Include="XML_DB\UDFs_ITM1.xml" />
   </ItemGroup>
   <ItemGroup>
     <COMReference Include="SAPbobsCOM">

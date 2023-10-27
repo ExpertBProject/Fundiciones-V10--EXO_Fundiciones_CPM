@@ -78,7 +78,6 @@ namespace Cliente
 
         }
 
-
         public bool ItemEvent(ItemEvent infoEvento)
         {
             switch (infoEvento.EventType)
@@ -115,6 +114,5 @@ namespace Cliente
 
             return true;
         }
-
     }
 }

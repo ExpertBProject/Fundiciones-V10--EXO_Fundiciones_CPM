@@ -18,7 +18,6 @@ namespace Cliente
             public ClasesObjetos TipoObjeto;
             public string Objeto;
             public string Mensaje;
-
         }
 
         public static EXO_UIAPI.EXO_UIAPI gen;
@@ -29,7 +28,6 @@ namespace Cliente
         public static bool LanzarImpresionCrystal = false;
         public static Object ThisMatriz;
 
-
         public Matriz(EXO_UIAPI.EXO_UIAPI gen, Boolean act, Boolean usalicencia, int idAddon)
                   : base(gen, act, usalicencia, idAddon)
         {
@@ -38,11 +36,23 @@ namespace Cliente
 
             Object ThisMatriz = this;             
             if (act)
-            {                
+            {
+                string cMen = "";
+
+                #region UDFs itm1
+                string fich = Utilidades.LeoFichEmbebido("XML_DB.UDFs_ITM1.xml");
+                if (!objGlobal.refDi.comunes.LoadBDFromXML(fich, cMen))
+                {
+                    aplicacionB1.MessageBox(cMen, 1, "Ok", "", "");
+                }
+                else
+                {
+                    gen.SBOApp.SetStatusBarMessage("Actualizado UDF ITM1", SAPbouiCOM.BoMessageTime.bmt_Short, false);
+                }
+                #endregion
             }
 
             SAPbobsCOM.Recordset oRec = null;
-
             #region Decimales de la aplicacion
             oRec = Matriz.gen.refDi.SQL.sqlComoRsB1("SELECT T0.SumDec, T0.PriceDec, T0.RateDec, T0.QtyDec, T0.PercentDec, T0.MeasureDec, T0.ThousSep, T0.DecSep FROM OADM T0");
             VarGlobal.SumDec = Convert.ToInt32(oRec.Fields.Item(0).Value);
@@ -54,12 +64,10 @@ namespace Cliente
             VarGlobal.SepMill = Convert.ToString(oRec.Fields.Item(6).Value);
             VarGlobal.SepDec = Convert.ToString(oRec.Fields.Item(7).Value);
             #endregion
-
             System.Runtime.InteropServices.Marshal.ReleaseComObject(oRec);
             oRec = null;
             GC.Collect();
-            GC.WaitForPendingFinalizers();            
-
+            GC.WaitForPendingFinalizers();
         }
 
         public override SAPbouiCOM.EventFilters filtros()
@@ -97,40 +105,36 @@ namespace Cliente
                 menu.LoadXml(mXML);
                 return menu;
             }
-            else
-            {
-                return null;
-            }
+            else return null;
         }
 
         public override bool SBOApp_ItemEvent(ItemEvent infoEvento)
         {
             bool lRetorno = true;
-
-
             if (infoEvento.FormTypeEx == "EXOCPM")
             {
                 EXO_CalculoPrecioMedio fEXOCPM = new EXO_CalculoPrecioMedio();
                 lRetorno = fEXOCPM.ItemEvent(infoEvento);
                 fEXOCPM = null;                
             } 
-
-
             if (infoEvento.FormTypeEx == "DETAPREC")
             {
                 EXO_DetaPrecMed fDetaPrec = new EXO_DetaPrecMed();
                 lRetorno = fDetaPrec.ItemEvent(infoEvento);
                 fDetaPrec = null;
             }
-
             if (infoEvento.FormTypeEx == "VENREGPM")
             {
                 EXO_VENREG fVenReg = new EXO_VENREG();
                 lRetorno = fVenReg.ItemEvent(infoEvento);
                 fVenReg = null;
             }
-
-
+            if(infoEvento.FormTypeEx == "157")
+            {
+                EXO_157 fListaPrecios = new EXO_157();
+                lRetorno = fListaPrecios.ItemEvent(infoEvento);
+                fListaPrecios = null;
+            }
             return lRetorno;
         }
 
@@ -140,8 +144,6 @@ namespace Cliente
 
             switch (infoMenuEvent.MenuUID)
             {
-
-
                 case "mCalPre":
                     // Calculo de Precio Medio
                     if (!infoMenuEvent.BeforeAction)
