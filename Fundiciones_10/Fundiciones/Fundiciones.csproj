@@ -159,6 +159,9 @@
     <EmbeddedResource Include="xFiltrosFundiciones_PM.xml" />
     <EmbeddedResource Include="xMenuFundiciones_PM.xml" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="V2 - Propuesta F&amp;A Calculo Ultimo Precio Evaluado.docx" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>C:\DESARROLLO\FUNDICIONES_GIT\Copio_Fundiciones_CPM.bat</PostBuildEvent>
