@@ -116,6 +116,7 @@ namespace Cliente
                         #region Flecha del detalle de precio
                         SAPbouiCOM.Form oForm = Matriz.gen.SBOApp.Forms.GetForm(infoEvento.FormTypeEx, infoEvento.FormTypeCount);
                         SAPbouiCOM.Grid oGrid = oForm.Items.Item("grdCli").Specific;
+                        
 
                         string cArt = oGrid.DataTable.GetValue("Articulo", oGrid.GetDataTableRowIndex(infoEvento.Row));
                         string cNomArt = oGrid.DataTable.GetValue("Descripcion", oGrid.GetDataTableRowIndex(infoEvento.Row));
@@ -282,6 +283,36 @@ namespace Cliente
                                 }
                                 else
                                 {
+                                    #region Node template
+                                    //Para el formato del grid
+                                    XmlDocument XmlGrid = new XmlDocument();
+                                    XmlElement commonSetting = XmlGrid.CreateElement("CommonSetting");
+                                    XmlNode Rows = XmlGrid.CreateNode(XmlNodeType.Element, "Rows", null);
+
+                                    XmlNode Row = XmlGrid.CreateNode(XmlNodeType.Element, "Row", null);
+                                    XmlNode Cells = XmlGrid.CreateNode(XmlNodeType.Element, "Cells", null);
+
+                                    XmlAttribute oAtriColumn = XmlGrid.CreateAttribute("colNum");
+                                    XmlAttribute oAtriColor = XmlGrid.CreateAttribute("fontColor");
+
+                                    //
+                                    XmlNode Cell = XmlGrid.CreateNode(XmlNodeType.Element, "Cell", null);
+                                    oAtriColor.InnerText = "";
+                                    Cell.Attributes.Append(oAtriColor);
+
+                                    oAtriColumn.InnerText = "4";
+                                    Cell.Attributes.Append(oAtriColumn);
+                                    
+                                    Cells.AppendChild(Cell);                                    
+                                    Row.AppendChild(Cells);
+
+                                    //Meto la linea
+                                    XmlAttribute oAtriRow = XmlGrid.CreateAttribute("rowNum");
+                                    oAtriRow.InnerText = "";
+                                    Row.Attributes.Append(oAtriRow);
+                                    #endregion
+
+
                                     ((SAPbouiCOM.EditTextColumn)oGrid.Columns.Item("Articulo")).LinkedObjectType = "4";
                                     ((SAPbouiCOM.EditTextColumn)oGrid.Columns.Item("x")).LinkedObjectType = "17";
 
@@ -297,6 +328,43 @@ namespace Cliente
                                     oComboCol.DisplayType = BoComboDisplayType.cdt_Description;
                                     oComboCol.ExpandType = BoExpandType.et_DescriptionOnly;
                                     #endregion
+
+                                
+                                    #region xml grid
+                                    System.Xml.XmlDocument oXmlGridTabla = new System.Xml.XmlDocument();
+                                    string sXmlTabla = oGrid.DataTable.SerializeAsXML(BoDataTableXmlSelect.dxs_All);
+                                    oXmlGridTabla.LoadXml(sXmlTabla);
+                                    #endregion
+                                    
+                                    XmlNodeList oXmlNodesGridTabla = oXmlGridTabla.SelectNodes("/DataTable/Rows/Row");
+                                    foreach (XmlNode oNodo in oXmlNodesGridTabla)
+                                    {
+                                        int nPosicionGrid = Convert.ToInt32(oNodo.ParentNode.ChildNodes.Cast<XmlNode>().ToList().IndexOf(oNodo)) + 1;
+                                        #region Para la columna de enviar y anular
+                                        XmlNode oAIncluir = Row.CloneNode(true);
+                                        oAIncluir.Attributes.Item(0).Value = nPosicionGrid.ToString();
+
+                                        string cBloquear = oNodo.SelectSingleNode("Cells/Cell[ColumnUid='Bloquear Precio Expert']/Value").InnerText;
+
+                                        ////enviar - No se puede enviar y anular a la vez
+                                        //oAIncluir.SelectSingleNode("Cells").FirstChild.Attributes.GetNamedItem("fontColor").Value =  (cBloquear == "Y" ? System.Drawing.Color.Pink.ToArgb().ToString() : "0");
+                                        //if (cBloquear == "Y")
+                                        //{
+                                        //    int nn = System.Drawing.Color.Red.R;
+                                        //}
+                                        oAIncluir.SelectSingleNode("Cells").FirstChild.Attributes.GetNamedItem("fontColor").Value = (cBloquear == "Y" ? "16711680" : "0");
+                                        Rows.AppendChild(oAIncluir);
+                                        #endregion
+                                    }
+
+
+
+
+                                    commonSetting.AppendChild(Rows);
+                                    XmlGrid.AppendChild(commonSetting);
+
+                                    oGrid.CommonSetting.UpdateFromXML(XmlGrid.InnerXml);
+
 
                                     Matriz.gen.SBOApp.SetStatusBarMessage("Calculos realizados", BoMessageTime.bmt_Short, false);
                                 }

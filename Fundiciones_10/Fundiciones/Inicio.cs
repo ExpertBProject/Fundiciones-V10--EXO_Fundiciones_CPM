@@ -105,7 +105,12 @@ namespace Cliente
                 menu.LoadXml(mXML);
                 return menu;
             }
-            else return null;
+            else
+            {
+                return null;
+            }
+
+          //  return null;
         }
 
         public override bool SBOApp_ItemEvent(ItemEvent infoEvento)

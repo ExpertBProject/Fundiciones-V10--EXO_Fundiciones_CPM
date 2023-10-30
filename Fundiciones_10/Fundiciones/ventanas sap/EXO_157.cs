@@ -15,7 +15,7 @@ namespace Cliente
             {
                 case BoEventTypes.et_VALIDATE:
                     #region validate
-                    if(!infoEvento.BeforeAction && infoEvento.ActionSuccess && !infoEvento.InnerEvent)
+                    if(!infoEvento.BeforeAction && infoEvento.ActionSuccess && !infoEvento.InnerEvent  && infoEvento.ItemChanged )
                     {
                         #region validate especifico para col precio
                         if (infoEvento.ItemUID == "3" && infoEvento.ColUID == "5" && infoEvento.ItemChanged)

@@ -24,3 +24,4 @@ C:\DESARROLLO\FUNDICIONES_GIT\Fundiciones-V10--EXO_Fundiciones_CPM\Fundiciones_1
 C:\DESARROLLO\FUNDICIONES_GIT\Fundiciones-V10--EXO_Fundiciones_CPM\Fundiciones_10\Fundiciones\bin\x64\Debug\System.Spatial.dll
 C:\DESARROLLO\FUNDICIONES_GIT\Fundiciones-V10--EXO_Fundiciones_CPM\Fundiciones_10\Fundiciones\obj\x64\Debug\EXO_Fundiciones_CPM.dll
 C:\DESARROLLO\FUNDICIONES_GIT\Fundiciones-V10--EXO_Fundiciones_CPM\Fundiciones_10\Fundiciones\obj\x64\Debug\EXO_Fundiciones_CPM.pdb
+C:\DESARROLLO\FUNDICIONES_GIT\Fundiciones-V10--EXO_Fundiciones_CPM\Fundiciones_10\Fundiciones\obj\x64\Debug\Fundiciones.csprojResolveAssemblyReference.cache
